@@ -1,0 +1,23 @@
+[build]
+  publish   = "."
+  functions = "netlify/functions"
+
+# Sin build step: Netlify sirve los archivos tal cual están en el repo.
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control          = "no-cache, must-revalidate"
+    X-Frame-Options        = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+
+# Los íconos y la mascota sí se cachean: no cambian casi nunca.
+[[headers]]
+  for = "/icons/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+[[headers]]
+  for = "/img/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"

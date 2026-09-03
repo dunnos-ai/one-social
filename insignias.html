@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Insignias · ONE</title>
+<meta name="theme-color" content="#0B0F0D">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700;800&family=JetBrains+Mono:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --page:#F2EFE6; --card:#FFFFFF; --line:#E9E4D6;
+  --ink:#1C1A14; --t2:#5C5847; --t3:#8A8574;
+  --mint:#0E9E75; --mint-d:#07543E; --mint-w:rgba(14,158,117,.10);
+  --gold:#C97C05; --gold-w:rgba(201,124,5,.10);
+  --azul:#1A8FBF; --azul-w:rgba(26,143,191,.10);
+  --morado:#6552E6; --morado-w:rgba(101,82,230,.10);
+  --rosa:#E0324F; --rosa-w:rgba(224,50,79,.10);
+  --verde:#0E9E75; --verde-w:rgba(14,158,117,.10);
+  --bronze:#A9673C; --bronze-w:rgba(169,103,60,.10);
+  --silver:#8A8F98; --silver-w:rgba(138,143,152,.10);
+  --terracota:#C9603C; --terracota-w:rgba(201,96,60,.10);
+  --fd:'Space Grotesk',sans-serif; --fm:'JetBrains Mono',monospace; --fb:'Inter',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--page);color:var(--ink);font-family:var(--fb);line-height:1.5;padding:0 0 60px;}
+.wrap{max-width:960px;margin:0 auto;padding:0 20px;}
+
+/* ===== HERO ===== */
+.hero{padding:56px 20px 44px;text-align:center;position:relative;overflow:hidden;}
+.hero::before{content:'';position:absolute;top:-120px;left:50%;transform:translateX(-50%);width:480px;height:480px;border-radius:50%;background:radial-gradient(closest-side, rgba(14,158,117,.14), transparent 70%);}
+.hero-mark{width:56px;height:56px;margin:0 auto 18px;position:relative;}
+.hero-mark svg{width:100%;height:100%;}
+.hero-eyebrow{font-family:var(--fm);font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--mint-d);margin-bottom:10px;position:relative;}
+.hero h1{font-family:var(--fd);font-weight:800;font-size:clamp(32px,7vw,52px);letter-spacing:-.03em;line-height:1.02;position:relative;}
+.hero h1 em{font-style:normal;color:var(--mint-d);}
+.hero p{max-width:480px;margin:16px auto 0;color:var(--t2);font-size:15px;position:relative;}
+
+/* ===== SECTION LABEL ===== */
+.section{margin-top:44px;}
+.section-head{display:flex;align-items:baseline;gap:10px;margin-bottom:16px;padding:0 2px;}
+.section-num{font-family:var(--fm);font-size:11px;color:var(--t3);font-weight:700;}
+.section-head h2{font-family:var(--fd);font-weight:700;font-size:19px;letter-spacing:-.01em;}
+.section-head .rule{flex:1;height:1px;background:var(--line);}
+.section-sub{font-size:13px;color:var(--t3);margin:-10px 2px 16px;}
+
+/* ===== GRID ===== */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;}
+
+/* ===== CARD ===== */
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;display:flex;gap:14px;align-items:flex-start;transition:transform .15s, box-shadow .15s;}
+.card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(30,28,20,.06);}
+.card-ico{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.card-ico svg{width:22px;height:22px;}
+.card-body{flex:1;min-width:0;}
+.card-name{font-family:var(--fd);font-weight:700;font-size:15.5px;letter-spacing:-.01em;margin-bottom:4px;}
+.card-req{font-size:13px;color:var(--t2);line-height:1.45;}
+.card-req b{color:var(--ink);font-weight:600;}
+
+/* ===== FEATURED (Viaje Campeones) ===== */
+.featured{background:linear-gradient(135deg, #1a1f1c, #0B0F0D);border-radius:22px;padding:28px 24px;display:flex;align-items:center;gap:18px;color:#F2F0EB;margin-bottom:32px;}
+.featured-ico{width:58px;height:58px;border-radius:16px;background:rgba(101,82,230,.22);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.featured-ico svg{width:30px;height:30px;color:#A599F5;}
+.featured-eyebrow{font-family:var(--fm);font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#A599F5;margin-bottom:5px;}
+.featured h3{font-family:var(--fd);font-weight:800;font-size:22px;letter-spacing:-.02em;margin-bottom:5px;}
+.featured p{font-size:13.5px;color:#B8C2BC;}
+.featured p b{color:#F2F0EB;}
+
+/* ===== FOOT NOTE ===== */
+.footnote{margin-top:48px;padding:20px;border-radius:16px;background:var(--mint-w);border:1px solid rgba(14,158,117,.22);font-size:13px;color:var(--mint-d);text-align:center;}
+.footnote b{font-weight:700;}
+
+@media (max-width:520px){
+  .featured{flex-direction:column;text-align:center;}
+}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-mark">
+    <svg viewBox="0 0 116 116" aria-label="ONE"><circle cx="58" cy="58" r="55" fill="none" stroke="rgba(14,158,117,.35)" stroke-width="2.5" stroke-dasharray="5 15" stroke-linecap="round"/><g transform="translate(8,8)"><path d="M68 22 A30 30 0 1 0 78 45 L78 86" fill="none" stroke="#0E9E75" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/></g></svg>
+  </div>
+  <div class="hero-eyebrow">Zona Uno · ONE</div>
+  <h1>Cada insignia <em>cuenta</em><br>una historia.</h1>
+  <p>Aquí está exactamente qué necesitas lograr para ganar cada una — sin adivinar, sin letras chiquitas.</p>
+</div>
+
+<div class="wrap">
+
+  <div class="featured">
+    <div class="featured-ico">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c3 2 4.5 6 4.5 10.5-1.2 1-3 2-4.5 2s-3.3-1-4.5-2C7.5 8 9 4 12 2Z"/><circle cx="12" cy="10" r="1.4"/><path d="M9 15l-2.5 4M15 15l2.5 4M10.5 19h3"/></svg>
+    </div>
+    <div>
+      <div class="featured-eyebrow">La más grande</div>
+      <h3>Viaje de Campeones</h3>
+      <p>Llega a <b>60 inscripciones acumuladas de Enero a Junio</b> y te ganas el viaje. Solo cuenta ese periodo — si no lo logras para entonces, hay que esperar al siguiente año.</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head"><span class="section-num">01</span><h2>Por volumen acumulado</h2><span class="rule"></span></div>
+    <div class="section-sub">Suman tus inscripciones de Enero–Julio (ya cerrado) más las que llevas validadas este mes.</div>
+    <div class="grid">
+
+      <div class="card">
+        <div class="card-ico" style="background:var(--verde-w);color:var(--verde)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg>
+        </div>
+        <div class="card-body"><div class="card-name">Garantía del Mes</div><div class="card-req">Llega a <b>12 inscripciones validadas</b> en cualquier mes — una sola vez que lo logres, es <b>para siempre</b>.</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-ico" style="background:var(--azul-w);color:var(--azul)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.6 5.8 6.2.6-4.7 4.2 1.4 6.2L12 16.8 6.5 19.8l1.4-6.2-4.7-4.2 6.2-.6L12 3Z"/></svg>
+        </div>
+        <div class="card-body"><div class="card-name">Club 15</div><div class="card-req"><b>15</b> inscripciones acumuladas.</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-ico" style="background:var(--verde-w);color:var(--verde)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M12 16v6M2 12h6M16 12h6M5 5l4 4M15 15l4 4M19 5l-4 4M9 15l-4 4"/></svg>
+        </div>
+        <div class="card-body"><div class="card-name">Club 25</div><div class="card-req"><b>25</b> inscripciones acumuladas.</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-ico" style="background:var(--bronze-w);color:var(--bronze)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="15" r="5"/><path d="M9 10.5 6 3M15 10.5l3-7.5"/><path d="M12 12.5v5"/></svg>
+        </div>
+        <div class="card-body"><div class="card-name">Club 50</div><div class="card-req"><b>50</b> inscripciones acumuladas.</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-ico" style="background:var(--silver-w);color:var(--silver)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="15" r="5"/><path d="M9 10.5 6 3M15 10.5l3-7.5"/><path d="M12 12.5v5"/></svg>
+        </div>
+        <div class="card-body"><div class="card-name">Club 75</div><div class="card-req"><b>75</b> inscripciones acumuladas.</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-ico" style="background:var(--gold-w);color:var(--gold)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="15" r="5"/><path d="M9 10.5 6 3M15 10.5l3-7.5"/><path d="M12 12.5v5"/></svg>
+        </div>
+        <div class="card-body"><div class="card-name">Club 100</div><div class="card-req"><b>100</b> inscripciones acumuladas.</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-ico" style="background:var(--gold-w);color:var(--gold)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12l3 6-9 12L3 9l3-6Z"/><path d="M3 9h18M9 3l3 6-3 12M15 3l-3 6 3 12"/></svg>
+        </div>
+        <div class="card-body"><div class="card-name">Club Oro</div><div class="card-req"><b>120</b> inscripciones acumuladas — el nivel más alto.</div></div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head"><span class="section-num">02</span><h2>Por lugar en el ranking</h2><span class="rule"></span></div>
+    <div class="section-sub">Se calculan sobre el mes en curso, en vivo.</div>
+    <div class="grid">
+
+      <div class="card">
+        <div class="card-ico" style="background:var(--gold-w);color:var(--gold)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4h10v6a5 5 0 0 1-10 0V4Z"/><path d="M7 5H4a3 3 0 0 0 3 4M17 5h3a3 3 0 0 1-3 4"/><path d="M12 15v3M9 20h6"/></svg>
+        </div>
+        <div class="card-body"><div class="card-name">Top 10 Nacional</div><div class="card-req">Termina el mes entre los <b>10 mejores</b> de toda la red.</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-ico" style="background:var(--rosa-w);color:var(--rosa)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9" r="5"/><path d="M9 13.5 7 21l5-3 5 3-2-7.5"/></svg>
+        </div>
+        <div class="card-body"><div class="card-name">Podio Nacional</div><div class="card-req">Termina el mes entre los <b>3 mejores</b> de toda la red.</div></div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head"><span class="section-num">03</span><h2>Por consistencia</h2><span class="rule"></span></div>
+    <div class="section-sub">Se ganan con el tiempo — cuentan cuántos meses distintos has llegado a cada nivel de ranking.</div>
+    <div class="grid">
+
+      <div class="card">
+        <div class="card-ico" style="background:var(--gold-w);color:var(--gold)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18h16l1-9-5 3-4-6-4 6-5-3 1 9Z"/><path d="M4 18v2h16v-2"/></svg>
+        </div>
+        <div class="card-body"><div class="card-name">Top Performer</div><div class="card-req">Llega al <b>Top 3 de la red</b> en 3 meses distintos (no seguidos, acumulados).</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-ico" style="background:var(--azul-w);color:var(--azul)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10v4h3l9 4V6l-9 4H3Z"/><path d="M11 6v12"/><path d="M17 9.5a3 3 0 0 1 0 5"/></svg>
+        </div>
+        <div class="card-body"><div class="card-name">Influencer</div><div class="card-req">Llega al <b>Top 5 de la red</b> en 3 meses distintos.</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-ico" style="background:var(--verde-w);color:var(--verde)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.6 2.6L16.3 9"/></svg>
+        </div>
+        <div class="card-body"><div class="card-name">Closer</div><div class="card-req">Llega al <b>Top 10 de la red</b> en 3 meses distintos.</div></div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head"><span class="section-num">04</span><h2>Del mes en curso</h2><span class="rule"></span></div>
+    <div class="section-sub">Se prenden y se apagan cada mes — reflejan lo que llevas ahora mismo.</div>
+    <div class="grid">
+
+      <div class="card">
+        <div class="card-ico" style="background:var(--verde-w);color:var(--verde)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v18"/><path d="M6 4h11l-2.5 4L17 12H6Z"/></svg>
+        </div>
+        <div class="card-body"><div class="card-name">Primer Registro</div><div class="card-req">Registra tu <b>primera inscripción</b> validada del mes.</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-ico" style="background:var(--terracota-w);color:var(--terracota)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2c1 3-3 4-3 8a3 3 0 0 0 6 0c0-1-1-1.5-1-3 2 1 3 3 3 5.5A5 5 0 0 1 7 12.5C7 8 12 6 12 2Z"/></svg>
+        </div>
+        <div class="card-body"><div class="card-name">Racha Activa</div><div class="card-req">Llega a <b>5 inscripciones</b> validadas en el mes.</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-ico" style="background:var(--rosa-w);color:var(--rosa)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
+        </div>
+        <div class="card-body"><div class="card-name">Doble Dígito</div><div class="card-req">Llega a <b>10 inscripciones</b> validadas en el mes.</div></div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head"><span class="section-num">05</span><h2>De rol</h2><span class="rule"></span></div>
+    <div class="section-sub">No dependen de un número — vienen con el cargo.</div>
+    <div class="grid">
+
+      <div class="card">
+        <div class="card-ico" style="background:var(--morado-w);color:var(--morado)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18h16l1-9-5 3-4-6-4 6-5-3 1 9Z"/><path d="M4 18v2h16v-2"/></svg>
+        </div>
+        <div class="card-body"><div class="card-name">Líder de Equipo</div><div class="card-req">Para quien esté a cargo de un equipo — Supervisor, Gerente Comercial, Distrital, Divisional o Regional.</div></div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="footnote">
+    ¿Ya ganaste alguna de estas en el pasado y no te aparece? Entra a tu perfil dentro de <b>ONE</b> y toca <b>"¿Ya la tienes? Solicitar"</b> debajo de la insignia — tu gerente la revisa y te la activa.
+  </div>
+
+</div>
+
+</body>
+</html>

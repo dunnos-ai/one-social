@@ -1851,10 +1851,10 @@ async function buildMeFromAuthUser(userId){
   // Cualquier persona puede además ser dueña de oficina(s) — sin importar su rol principal.
   const { data: rows } = await sb.from('profile_offices').select('offices!office_id(name)').eq('profile_id', prof.id);
   misOficinas = (rows||[]).map(r=>r.offices && r.offices.name).filter(Boolean);
-  // Nueva regla: un Gerente Regional solo ve su propia oficina franquicia con nombre — el
-  // resto de las oficinas que técnicamente cubre no se le muestran identificadas en ningún
-  // widget combinado (histórico multi-oficina, "como dueño de", etc.).
-  if(prof.role==='regional') misOficinas = f ? [f] : [];
+  // Un Gerente Regional sí ve las oficinas de su zona: le sirven para sus KPIs
+  // (histórico combinado, ranking de oficinas y portal por oficina). Esto NO le da
+  // ningún poder de aprobación: quién autoriza sale de la jerarquía, y segundoAprobador()
+  // deja fuera al regional a propósito.
   if(prof.role==='franquiciatario') f = misOficinas.join(', ');
   if(prof.role==='general' || prof.role==='fundador') f = 'Toda la red';
   if(prof.ve_toda_la_red) f = 'Toda la red';
@@ -2131,9 +2131,12 @@ function ownedOfficeSectionHTML(){
   const team = getOwnedOfficeTeam();
   if(!team.length) return '';
   const oficinas = [...new Set(team.map(r=>r.f))];
+  // Un regional no es dueño de sus oficinas: las cubre. Los demás (ej. un divisional
+  // que además tiene oficina propia) sí, y conservan su etiqueta.
+  const esRegional = ME.role==='lead' && LIDERES.regional.includes(ME.n);
   return `
     <div class="card" style="border-color:var(--terracota)">
-      ${cLbl('building','var(--terracota)', `Como dueño · ${ME.ownedOffices.join(', ')}`)}
+      ${cLbl('building','var(--terracota)', `${esRegional ? 'Mi zona' : 'Como dueño'} · ${ME.ownedOffices.join(', ')}`)}
       ${team.length ? [...team].sort((a,b)=>validatedTotal(b.n)-validatedTotal(a.n)).slice(0,5).map((r,i)=>
         medalRow(i+1, r.n, r.f, validatedTotal(r.n)+' insc.', false)).join('')
         : `<div class="empty-state">${eIco('people')}Sin representantes en esta oficina aún</div>`}
@@ -3369,7 +3372,6 @@ function renderRanking(){
 
   if(RANK_CAT==='portal' && tienePortal){
     const misOficinas = (ME.role==='general' || ME.role==='fundador') ? Object.keys(OFFICE_MONTHLY_DIRECT).sort()
-      : (ME.role==='regional') ? [ME.f] // Nueva regla: un regional solo ve el detalle completo de su propia oficina
       : (ME.ownedOffices||[]);
     if(!PORTAL_OFICINA_SEL || !misOficinas.includes(PORTAL_OFICINA_SEL)) PORTAL_OFICINA_SEL = misOficinas[0] || null;
     if(PORTAL_OFICINA_SEL && !PORTAL_DETALLE_CACHE[PORTAL_OFICINA_SEL]) cargarPortalDetalle(PORTAL_OFICINA_SEL);

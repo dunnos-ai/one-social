@@ -90,11 +90,18 @@ Cuando un mes termina y sus totales entran a `monthly_totals_closed`,
 esa clave de mes **en todos estos lugares del `index.html`**. Olvidar uno solo
 descuadra los acumulados — ya pasó con agosto:
 
-1. `const MESES_KEY` — la lista maestra de meses cerrados.
-2. `const MESES_LBL` — su etiqueta visible ('Septiembre', etc.).
-3. El `reps.push({...})` que arma cada representante (`ene:mm.ene||0, …`).
-4. Los cinco `personal:{…}` de sup, gc, distrital, divisional y regional.
-5. El inicializador de `OFFICE_MONTHLY_DIRECT`.
+Búscalos con `grep -n "'ene','feb'\|ene:mm.ene\|ene:0,feb:0" index.html`:
+
+1. `const MESES_KEY` y `const MESES_LBL` — la lista maestra y su etiqueta visible.
+2. El `reps.push({...})` que arma cada representante (`ene:mm.ene||0, …`).
+3. Los cinco `personal:{…}` de sup, gc, distrital, divisional y regional.
+4. El inicializador de `OFFICE_MONTHLY_DIRECT`.
+5. Los cuatro `MKEYS` / `MK` locales que recorren los meses: el rollup de sup y gc,
+   `historicoDistritalHTML`, `repEntriesConPersonal` y `officeCategoryList`.
+6. `maxMonthOf` — la lista suelta que busca el mejor mes.
+
+**No** toques el `['ene',…,'jun']` de `eneJunOf`: ese es el Viaje de Campeones,
+que por definición sólo cuenta enero–junio. Tampoco las listas de 12 meses.
 
 Después de agregarlo, comprobar la regla de oro:
 

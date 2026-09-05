@@ -104,6 +104,34 @@ Después de agregarlo, comprobar la regla de oro:
 Y actualizar el rango que anuncia `insignias.html` ("Suman tus inscripciones de
 Enero–_mes_ …").
 
+### El corte del mes: `cierre_manual` ⚠️
+
+Los rankings "en vivo" cuentan las inscripciones con
+`created_at >= inicio_mes_efectivo()`. Esa función devuelve
+`cierre_manual.forzado_desde` **siempre que esa fecha ya haya pasado** — sin
+importar en qué mes estemos:
+
+```sql
+select forzado_desde into v_forzado from cierre_manual where id=1;
+if v_forzado is not null and now() >= v_forzado then
+  return v_forzado;   -- se queda pegado ahí para siempre
+end if;
+```
+
+Sirve para dar chance de capturar ventas rezagadas: las que entren antes de ese
+corte cuentan para el mes anterior. Así fue en agosto — 18 inscripciones (22
+ventas) capturadas el 1 de septiembre antes de las 16:19 quedaron en el cierre
+de agosto, correctamente y sin contarse dos veces.
+
+**El riesgo:** si no se mueve, el mes en vivo nunca avanza. Con
+`forzado_desde` en el 1 de septiembre, al llegar octubre el ranking "del mes"
+seguiría arrancando en septiembre y mostraría los dos meses sumados.
+
+Por eso, **al cerrar cada mes hay que actualizar esa fila a mano en Supabase**
+(la app nunca la escribe): ponerle el nuevo corte, o dejarla en `NULL` para que
+aplique la regla automática (el mes anterior sigue vivo hasta las 13:00 del
+primer día hábil del mes nuevo).
+
 ### Por qué el acumulado no se suma desde `.t`
 
 El campo `.t` de un supervisor o gerente **ya trae a su equipo dentro**. Sumarlo

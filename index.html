@@ -312,6 +312,8 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;overscrol
 .pm-tier-req{font-family:var(--fm);font-size:10.5px;color:var(--t3);}
 .pm-social-row{display:flex;gap:8px;margin-top:10px;}
 .pm-actions{margin-bottom:6px;}
+.pm-me-actions{display:flex;gap:8px;}
+.pm-me-actions .friend-btn{flex:1;justify-content:center;padding:11px 14px;}
 .pm-actions .friend-btn,.pm-actions .friend-req-actions{width:100%;justify-content:center;}
 .profile-tabs{display:flex;border-top:1px solid var(--line);margin-top:16px;}
 .profile-tab{flex:1;text-align:center;padding:13px 0 11px;font-family:var(--fm);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--t3);cursor:pointer;border-top:2px solid transparent;margin-top:-1px;display:flex;align-items:center;justify-content:center;gap:6px;}
@@ -1381,16 +1383,35 @@ async function saveProfileEdit(name){
   showToast('✅ Perfil actualizado');
   renderProfile(name);
 }
+function togglePassBox(){
+  const caja = document.getElementById('profilePassBox');
+  const abrir = caja.style.display !== 'block';
+  const edicion = document.getElementById('profileEditBox');
+  if(edicion) edicion.style.display = 'none';   // que no se encimen los dos paneles
+  caja.style.display = abrir ? 'block' : 'none';
+  if(abrir) setTimeout(()=> document.getElementById('editPassActual').focus(), 60);
+}
 async function changePassword(){
+  const actual = document.getElementById('editPassActual').value;
   const pass1 = document.getElementById('editPass1').value;
   const pass2 = document.getElementById('editPass2').value;
   const errEl = document.getElementById('passChangeError');
-  if(!pass1 || pass1.length<4){ errEl.textContent='Mínimo 4 caracteres.'; return; }
-  if(pass1!==pass2){ errEl.textContent='No coinciden.'; return; }
+  if(!actual){ errEl.textContent='Escribe tu contraseña actual.'; return; }
+  if(!pass1 || pass1.length<4){ errEl.textContent='La nueva debe tener al menos 4 caracteres.'; return; }
+  if(pass1!==pass2){ errEl.textContent='Las nuevas no coinciden.'; return; }
+  if(pass1===actual){ errEl.textContent='La nueva tiene que ser distinta a la actual.'; return; }
+  errEl.textContent = 'Verificando…';
+  // Se pide la actual a propósito: en las oficinas los teléfonos se prestan, y sin
+  // esto cualquiera con la sesión abierta podría dejar al dueño fuera de su cuenta.
+  const { data: { user } } = await sb.auth.getUser();
+  if(!user){ errEl.textContent='Tu sesión expiró. Vuelve a entrar.'; return; }
+  const { error: errActual } = await sb.auth.signInWithPassword({ email: user.email, password: actual });
+  if(errActual){ errEl.textContent='Tu contraseña actual no es correcta.'; return; }
   const { error } = await sb.auth.updateUser({ password: pass1 });
   if(error){ errEl.textContent = error.message; return; }
   errEl.textContent = '';
-  document.getElementById('editPass1').value=''; document.getElementById('editPass2').value='';
+  ['editPassActual','editPass1','editPass2'].forEach(id=> document.getElementById(id).value='');
+  document.getElementById('profilePassBox').style.display = 'none';
   showToast('✅ Contraseña actualizada');
 }
 async function handlePhotoUpload(input, name){
@@ -1575,7 +1596,10 @@ function renderProfile(name){
   const rc = roleColor(identity.role);
 
   let friendBtn;
-  if(isMe) friendBtn = `<button class="friend-btn fb-edit" onclick="toggleEditProfile(document.getElementById('profileEditBox').style.display!=='block')">${ico('edit','currentColor',14)} Editar perfil</button>`;
+  if(isMe) friendBtn = `<div class="pm-me-actions">
+      <button class="friend-btn fb-edit" onclick="toggleEditProfile(document.getElementById('profileEditBox').style.display!=='block')">${ico('edit','currentColor',14)} Editar perfil</button>
+      <button class="friend-btn fb-edit" onclick="togglePassBox()">${ico('lock','currentColor',14)} Contraseña</button>
+    </div>`;
   else if(status==='ninguna') friendBtn = `<button class="friend-btn fb-add" onclick='sendFriendRequest(${JSON.stringify(name)})'>${ico('plus','currentColor',15)} Agregar amigo</button>`;
   else if(status==='pendiente_enviada') friendBtn = `<button class="friend-btn fb-pending" disabled>Solicitud enviada</button>`;
   else if(status==='pendiente_recibida') friendBtn = `<div class="friend-req-actions"><button class="friend-btn fb-accept" onclick='respondFriendRequest(${JSON.stringify(name)},true)'>Aceptar</button><button class="friend-btn fb-reject" onclick='respondFriendRequest(${JSON.stringify(name)},false)'>✕</button></div>`;
@@ -1625,11 +1649,14 @@ function renderProfile(name){
           <div class="edit-social-field">${ico('threads','var(--text3)',16)}<input id="editThreads" placeholder="usuario" value="${escapeHTML(extra.threads||'')}"></div>
         </div>
         <button class="wall-post-btn" style="width:100%;margin-top:8px" onclick='saveProfileEdit(${nameJson})'>Guardar</button>
-        <div class="edit-divider">Cambiar contraseña</div>
-        <input id="editPass1" type="password" placeholder="Nueva contraseña">
-        <input id="editPass2" type="password" placeholder="Repite la contraseña" style="margin-top:8px">
+      </div>
+      <div id="profilePassBox" class="profile-edit-box" style="display:none">
+        <div class="edit-divider" style="margin-top:0;padding-top:0;border-top:none">Cambiar contraseña</div>
+        <input id="editPassActual" type="password" autocomplete="current-password" placeholder="Tu contraseña actual">
+        <input id="editPass1" type="password" autocomplete="new-password" placeholder="Nueva contraseña" style="margin-top:8px">
+        <input id="editPass2" type="password" autocomplete="new-password" placeholder="Repite la nueva" style="margin-top:8px">
         <div id="passChangeError" class="login-error" style="text-align:left"></div>
-        <button class="wall-post-btn" style="width:100%;margin-top:8px;background:var(--s3);color:var(--text)" onclick="changePassword()">Actualizar contraseña</button>
+        <button class="wall-post-btn" style="width:100%;margin-top:8px" onclick="changePassword()">Actualizar contraseña</button>
       </div>
       <div class="profile-tabs">
         <div class="profile-tab on" id="ptabInsignias" onclick="setProfileTab('insignias')">${ico('trophy','currentColor',14)} Insignias</div>

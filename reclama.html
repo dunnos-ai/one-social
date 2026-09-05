@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tu lugar en ONE</title>
+<meta name="theme-color" content="#F2EFE6">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="robots" content="noindex, nofollow">
+<meta property="og:title" content="Tu lugar en la Zona Uno">
+<meta property="og:description" content="Ya tienes ventas registradas y insignias esperándote. Recoge tu cuenta.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Paleta clara — la misma de insignias.html y del tema que la app fuerza al arrancar. */
+  --ink:#F2EFE6; --s1:#FFFFFF; --s2:#EDEAE0; --line:#E9E4D6;
+  --bone:#1C1A14; --t2:#5C5847; --t3:#8A8574;
+  --mint:#0E9E75; --mint-d:#07543E; --acid:#C97C05; --iris:#6552E6; --on-mint:#FFFFFF;
+  --fd:'Bricolage Grotesque',sans-serif; --fb:'Space Grotesk',sans-serif; --fm:'JetBrains Mono',monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--ink);color:var(--bone);font-family:var(--fb);line-height:1.5;
+     -webkit-font-smoothing:antialiased;min-height:100dvh;display:flex;flex-direction:column;}
+.wrap{width:100%;max-width:460px;margin:0 auto;padding:28px 20px 40px;flex:1;
+      display:flex;flex-direction:column;justify-content:center;}
+
+.mark{width:44px;height:44px;margin-bottom:26px;}
+.mark svg{width:100%;height:100%;display:block;}
+
+.eyebrow{font-family:var(--fm);font-size:11px;font-weight:700;letter-spacing:.16em;
+         text-transform:uppercase;color:var(--mint);margin-bottom:10px;}
+h1{font-family:var(--fd);font-weight:800;font-size:clamp(30px,9vw,42px);
+   letter-spacing:-.03em;line-height:1.02;margin-bottom:6px;}
+.sub{color:var(--t2);font-size:14.5px;margin-bottom:26px;}
+
+/* cifra principal */
+.hero-num{background:linear-gradient(150deg,#E6F5EF,#FFFFFF);border:1px solid rgba(14,158,117,.26);
+          border-radius:22px;padding:24px 22px;margin-bottom:12px;position:relative;overflow:hidden;}
+.hero-num::after{content:'';position:absolute;top:-70px;right:-70px;width:200px;height:200px;
+                 border-radius:50%;background:radial-gradient(closest-side,rgba(14,158,117,.14),transparent 70%);}
+.big{font-family:var(--fd);font-weight:800;font-size:64px;line-height:1;color:var(--mint);
+     letter-spacing:-.04em;position:relative;}
+.big-l{font-size:13.5px;color:var(--t2);margin-top:4px;position:relative;}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+.stat{background:var(--s1);border:1px solid var(--line);border-radius:16px;padding:15px 16px;}
+.stat-v{font-family:var(--fd);font-weight:700;font-size:25px;letter-spacing:-.02em;}
+.stat-l{font-size:11.5px;color:var(--t3);margin-top:2px;}
+
+/* insignias */
+.badges{background:var(--s1);border:1px solid var(--line);border-radius:18px;padding:17px 18px;margin-bottom:22px;}
+.badges-h{font-family:var(--fm);font-size:10.5px;font-weight:700;letter-spacing:.14em;
+          text-transform:uppercase;color:var(--acid);margin-bottom:11px;}
+.chips{display:flex;flex-wrap:wrap;gap:7px;}
+.chip{background:rgba(201,124,5,.09);border:1px solid rgba(201,124,5,.3);color:var(--acid);
+      border-radius:999px;padding:6px 13px;font-size:12.5px;font-weight:600;}
+
+.cta{display:block;width:100%;background:var(--mint);color:var(--on-mint);border:none;
+     border-radius:16px;padding:17px;font-family:var(--fb);font-weight:700;font-size:16.5px;
+     text-align:center;text-decoration:none;cursor:pointer;
+     box-shadow:0 10px 28px rgba(14,158,117,.24);}
+.cta:active{transform:translateY(1px);}
+.cta-note{text-align:center;color:var(--t3);font-size:12.5px;margin-top:13px;}
+
+.msg{background:var(--s1);border:1px solid var(--line);border-radius:20px;padding:30px 24px;text-align:center;}
+.msg h2{font-family:var(--fd);font-weight:700;font-size:21px;margin-bottom:8px;letter-spacing:-.02em;}
+.msg p{color:var(--t2);font-size:14px;margin-bottom:20px;}
+.link{color:var(--mint);text-decoration:none;font-weight:600;}
+.skel{height:15px;border-radius:7px;background:linear-gradient(90deg,var(--s2),#F7F5EE,var(--s2));
+      background-size:200% 100%;animation:sh 1.3s linear infinite;margin-bottom:9px;}
+@keyframes sh{to{background-position:-200% 0}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <div class="mark"><svg viewBox="0 0 116 116" aria-label="ONE"><g transform="translate(8,8)"><path d="M68 22 A30 30 0 1 0 78 45 L78 86" fill="none" stroke="#0E9E75" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/></g></svg></div>
+  <div class="skel" style="width:45%"></div>
+  <div class="skel" style="width:80%;height:30px"></div>
+  <div class="skel" style="width:65%"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script>
+const SUPABASE_URL = 'https://otlcrsnoeosyscwhjfxr.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_KvYJyZdCwYEyqpiVGDc1lQ_2seVt7YO';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, { auth:{ persistSession:false } });
+
+const MARK = `<div class="mark"><svg viewBox="0 0 116 116" aria-label="ONE"><g transform="translate(8,8)"><path d="M68 22 A30 30 0 1 0 78 45 L78 86" fill="none" stroke="#0E9E75" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/></g></svg></div>`;
+const MESES = {ene:'enero',feb:'febrero',mar:'marzo',abr:'abril',may:'mayo',jun:'junio',
+               jul:'julio',ago:'agosto',sep:'septiembre',oct:'octubre',nov:'noviembre',dic:'diciembre'};
+const esc = t => String(t==null?'':t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// Sólo el primer nombre: "ALEXANDRO CASTILLO" -> "Alexandro". Se siente personal, no un padrón.
+const primerNombre = n => {
+  const p = String(n||'').trim().split(/\s+/)[0] || '';
+  return p.charAt(0) + p.slice(1).toLowerCase();
+};
+const app = document.getElementById('app');
+const pintar = html => { app.innerHTML = MARK + html; };
+
+function pantallaGenerica(titulo, texto){
+  pintar(`<div class="msg"><h2>${esc(titulo)}</h2><p>${esc(texto)}</p>
+    <a class="cta" href="index.html">Abrir ONE</a></div>`);
+}
+
+async function arranca(){
+  const token = new URLSearchParams(location.search).get('t');
+  if(!token){
+    pantallaGenerica('Liga incompleta', 'Pídele a tu líder que te reenvíe tu liga personal.');
+    return;
+  }
+  const { data, error } = await sb.rpc('reclamo_por_token', { p_token: token });
+  if(error){
+    pantallaGenerica('No pudimos cargar tus datos', 'Revisa tu conexión e intenta de nuevo.');
+    return;
+  }
+  const d = (data||[])[0];
+  if(!d){
+    pantallaGenerica('Esta liga ya no sirve', 'Pídele a tu líder que te mande una nueva.');
+    return;
+  }
+  if(d.ya_tiene_cuenta){
+    pintar(`<div class="msg"><h2>Ya tienes cuenta, ${esc(primerNombre(d.nombre))}</h2>
+      <p>Entra con tu usuario y contraseña de siempre.</p>
+      <a class="cta" href="index.html">Entrar a ONE</a></div>`);
+    return;
+  }
+
+  const insignias = d.insignias || [];
+  const tieneRango = d.rango_nacional > 0;
+  const mes = d.mejor_mes ? MESES[d.mejor_mes] : null;
+
+  pintar(`
+    <div class="eyebrow">Zona Uno · te estábamos esperando</div>
+    <h1>Hola, ${esc(primerNombre(d.nombre))}.</h1>
+    <div class="sub">${esc(d.rol)}${d.oficina ? ' · ' + esc(d.oficina) : ''}</div>
+
+    <div class="hero-num">
+      <div class="big">${d.acumulado}</div>
+      <div class="big-l">inscripciones tuyas, ya contadas</div>
+    </div>
+
+    <div class="grid2">
+      <div class="stat">
+        <div class="stat-v">${tieneRango ? '#'+d.rango_nacional : '—'}</div>
+        <div class="stat-l">${tieneRango ? 'de '+d.total_personas+' en la red' : 'sin lugar todavía'}</div>
+      </div>
+      <div class="stat">
+        <div class="stat-v">${d.mejor_mes_total}</div>
+        <div class="stat-l">${mes ? 'tu mejor mes · '+mes : 'tu mejor mes'}</div>
+      </div>
+    </div>
+
+    ${insignias.length ? `<div class="badges">
+      <div class="badges-h">${insignias.length === 1 ? 'Tienes 1 insignia esperándote' : 'Tienes '+insignias.length+' insignias esperándote'}</div>
+      <div class="chips">${insignias.map(b=>`<div class="chip">${esc(b)}</div>`).join('')}</div>
+    </div>` : `<div class="badges">
+      <div class="badges-h">Tu primera insignia está cerca</div>
+      <div class="chips"><div class="chip">Club 15 · a ${Math.max(1, 15 - d.acumulado)} de distancia</div></div>
+    </div>`}
+
+    <a class="cta" href="index.html#reclamar=${encodeURIComponent(token)}">Recoger mi cuenta</a>
+    <div class="cta-note">Sólo eliges usuario y contraseña. Tu historial ya está adentro.</div>
+  `);
+}
+arranca();
+</script>
+</body>
+</html>

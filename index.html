@@ -1965,8 +1965,11 @@ async function renderSearch(){
   }).join('');
   renderSearch._matches = matches;
 }
-function pickProfile(i){
-  PICKED_PROFILE = renderSearch._matches[i];
+function pickProfile(i){ aplicarPerfilElegido(renderSearch._matches[i]); }
+// Deja el perfil listo en el paso 2 del alta. Se usa desde la búsqueda por nombre y
+// desde una liga de reclamo (reclama.html), donde ya sabemos exactamente quién es.
+function aplicarPerfilElegido(perfil){
+  PICKED_PROFILE = perfil;
   const initials = PICKED_PROFILE.n.split(' ').slice(0,2).map(w=>w[0]).join('');
   document.getElementById('createPicked').innerHTML = `
     <div class="sr-avatar">${initials}</div>
@@ -3821,6 +3824,29 @@ window.addEventListener('resize', ajustarScrollLogoLogin);
   }
   ME = perfil;
   await boot();
+})();
+</script>
+<script>
+// ── Liga de reclamo (reclama.html) ──────────────────────────────────────────
+// Llega como index.html#reclamar=<token>. El token sólo sirve para saber a quién
+// preseleccionar: la cuenta la sigue creando la persona con su usuario y contraseña,
+// y el enlace del perfil sigue protegido por "solo si auth_user_id is null".
+(async function(){
+  const m = /(?:^|[#&])reclamar=([^&]+)/.exec(location.hash || '');
+  if(!m) return;
+  history.replaceState(null, '', location.pathname + location.search); // que no quede en la barra
+  const token = decodeURIComponent(m[1]);
+  try{
+    const { data: ses } = await sb.auth.getSession();
+    if(ses && ses.session) return;                     // ya entró: no estorbar
+    const { data, error } = await sb.rpc('reclamo_por_token', { p_token: token });
+    const d = error ? null : (data||[])[0];
+    if(!d || d.ya_tiene_cuenta) return;                // liga vieja o ya reclamada
+    showCreateMode();
+    if(!await ensureDirectoryLoaded()) return;
+    const perfil = DIRECTORY.find(x => x.data && x.data.id === d.profile_id);
+    if(perfil) aplicarPerfilElegido(perfil);
+  }catch(e){ console.error('liga de reclamo', e); }    // si algo falla, queda el alta normal
 })();
 </script>
 <script>

@@ -147,6 +147,52 @@ gerentes comerciales, porque además pasa por sus supervisores). Por eso
 `totalesPorMes()` calcula el acumulado sumando las columnas de meses ya
 resueltas, y nunca los `.t` de los líderes. No volver a sumar `.t` ahí.
 
+## Acceso: bloqueo por inactividad
+
+`profiles.last_seen_at` se sella al entrar, y también por trigger cuando se
+registra una inscripción a nombre de esa persona — así no se castiga a quien
+vende aunque sea su líder quien captura.
+
+Con **60 días** sin señal (`DIAS_INACTIVIDAD` en el `index.html`) se le cierra
+el acceso al entrar. **La persona no se borra**: sigue contando en rankings,
+cierres e históricos. Sólo deja de poder entrar.
+
+Para reactivar a alguien, en Supabase:
+
+```sql
+update profiles set last_seen_at = now(), auto_deactivated = false
+where nombre = 'NOMBRE EXACTO';
+```
+
+La revisión vive en el navegador, como la regla de representantes que ya
+existía. Sirve para sacar a quien ya no está en la empresa, no como barrera
+de seguridad: alguien con conocimientos técnicos podría saltársela hablando
+directo con Supabase. Lo que sí quedó cerrado con llave son los datos (abajo).
+
+## Qué puede escribir un usuario en su propio perfil
+
+`profiles` tenía `UPDATE` abierto en **todas** sus columnas para `anon` y
+`authenticated`. Con la política `profiles_update_own` eso permitía que
+cualquiera, desde la consola del navegador, se pusiera `base_total_ej = 999`
+(subir en el ranking y auto-otorgarse insignias), `role = 'general'` (ver toda
+la red) o `manual_block = false`. RLS no limita columnas: eso se hace con
+`GRANT` por columna, y ya está puesto.
+
+Sólo estas once son escribibles, que son justo las que la app usa:
+
+    bio, fecha_nacimiento, instagram, tiktok, facebook, threads, foto_url,
+    username, auth_user_id, auto_deactivated, last_seen_at
+
+**Si algún día la app necesita escribir otra columna, hay que otorgarla
+explícitamente** o la escritura falla en silencio.
+
+## Frase del día
+
+`FRASES` en el `index.html`: ventas, autoayuda y versículos (Reina-Valera
+1960). Rota **por fecha, no al azar** — la misma para toda la red cada día, para
+que se vuelva tema de conversación en la oficina. El ciclo completo dura tantos
+días como frases haya; agregar más lo alarga solo.
+
 ## Cómo se publica (no se sube nada a mano)
 
 Netlify está conectado a este repo. No hay build: sirve los archivos tal cual.

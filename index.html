@@ -1726,10 +1726,8 @@ function renderAmigos(){
     </div>` : ''}
     <div class="card">
       <div class="card-lbl">Mis amigos (${friends.length})</div>
-      ${friends.length ? friends.map(n=>{
-        const id = primaryIdentity(n);
-        return medalRowSimple(n, id.roleLbl+(id.f?' · '+id.f:''));
-      }).join('') : `<div class="empty-state">${eIco('link')}Aún no tienes amigos. Búscalos arriba.</div>`}
+      ${friends.length ? tablaDeAmigosHTML(friends)
+        : `<div class="empty-state">${eIco('link')}Aún no tienes amigos. Búscalos arriba.</div>`}
     </div>
   `;
   const input = document.getElementById('amigosSearch');
@@ -1747,6 +1745,36 @@ function renderAmigosResults(){
   const results = q.trim().length>=2 ? DIRECTORY.filter(d=>norm(d.n).includes(norm(q)) && d.n!==ME.n)
       .filter((d,i,arr)=>arr.findIndex(x=>x.n===d.n)===i).slice(0,15) : [];
   box.innerHTML = results.length ? `<div style="margin-top:10px">${results.map(d=>friendSearchRow(d)).join('')}</div>` : (q.trim().length>=2 ? `<div class="empty-state">${eIco('search')}Sin resultados</div>` : '');
+}
+// Compararse con 260 desconocidos no mueve a nadie; compararse con tus amigos sí.
+// Aquí van tú y ellos en la misma tabla, ordenados por acumulado, con el lugar que
+// ocupa cada quien en la red completa como dato de fondo.
+function tablaDeAmigosHTML(friends){
+  const nacional = nationalRanking();
+  const filas = [...friends, ME.n].map(n => {
+    const id = primaryIdentity(n);
+    return {
+      n, esYo: n === ME.n, roleLbl: id.roleLbl, f: id.f,
+      total: personalBaseTotal(n) + validatedTotal(n),
+      posNacional: nacional.findIndex(r => r.n === n) + 1 || null
+    };
+  }).sort((a, b) => b.total - a.total);
+
+  const medalla = i => i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '#' + (i + 1);
+  const nota = '<div class="small-note" style="margin:-4px 0 10px">T\u00fa y tus amigos, por total acumulado.</div>';
+
+  return nota + filas.map((r, i) => {
+    const sub = [r.roleLbl, r.f, r.posNacional ? '#' + r.posNacional + ' nacional' : '']
+                  .filter(Boolean).join(' \u00b7 ');
+    const resalte = r.esYo ? 'background:var(--mint-w);border-radius:12px;' : '';
+    // El nombre va dentro de un atributo HTML: se escapa también ahí, no sólo donde se ve.
+    return '<div class="mr mr-click" style="' + resalte + '" onclick=\'openProfile(' + escapeHTML(JSON.stringify(r.n)) + ')\'>'
+      + '<div class="mt" style="min-width:34px;text-align:center;font-size:15px">' + medalla(i) + '</div>'
+      + '<div class="mi"><div class="mn">' + (r.esYo ? 'T\u00da' : escapeHTML(r.n)) + '</div>'
+      + '<div class="ms">' + escapeHTML(sub) + '</div></div>'
+      + '<div class="mt" style="font-family:var(--fm);font-weight:700">' + r.total + '</div>'
+      + '</div>';
+  }).join('');
 }
 function medalRowSimple(name, sub){
   const initials = name.split(' ').slice(0,2).map(w=>w[0]).join('');
@@ -1995,6 +2023,23 @@ function repMonthlyValidated(nombre){
   });
   return map;
 }
+// Dos meses sin entrar = se le cierra el acceso. La persona NO se borra: sigue
+// contando en rankings, cierres e históricos. Sólo deja de poder entrar.
+// El sello last_seen_at se actualiza al entrar, y también cuando alguien registra
+// una inscripción a su nombre (trigger en la base), para no castigar a quien vende
+// aunque su líder sea el que captura.
+const DIAS_INACTIVIDAD = 60;
+function llevaInactivo(lastSeenAt){
+  if(!lastSeenAt) return false;                      // sin sello todavía: no se evalúa
+  const dias = (Date.now() - new Date(lastSeenAt).getTime()) / 86400000;
+  return dias > DIAS_INACTIVIDAD;
+}
+function marcarVisto(authUserId){
+  // No se espera: si falla, no debe estorbar la entrada.
+  sb.from('profiles').update({ last_seen_at: new Date().toISOString() })
+    .eq('auth_user_id', authUserId)
+    .then(({error}) => { if(error) console.error('last_seen_at', error); });
+}
 function isRepDeactivated(perfil, createdAt){
   if(!perfil || perfil.role!=='rep') return false; // regla exclusiva de representantes
   const DOS_MESES_MS = 1000*60*60*24*60;
@@ -2051,15 +2096,21 @@ async function doLogin(){
   const { data, error } = await sb.auth.signInWithPassword({ email: authEmail(username), password: pass });
   if(error){ errEl.textContent = 'Usuario o contraseña incorrectos.'; return; }
 
-  const { data: profRow } = await sb.from('profiles').select('manual_block,created_at,role').eq('auth_user_id', data.user.id).single();
+  const { data: profRow } = await sb.from('profiles').select('manual_block,created_at,role,last_seen_at').eq('auth_user_id', data.user.id).single();
   if(profRow && profRow.manual_block){
     errEl.textContent='Tu acceso fue desactivado por tu Gerencia. Contacta a tu oficina.';
+    await sb.auth.signOut();
+    return;
+  }
+  if(profRow && llevaInactivo(profRow.last_seen_at)){
+    errEl.textContent='Tu cuenta se cerró por '+DIAS_INACTIVIDAD+' días sin actividad. Tu historial está intacto — pídele a tu oficina que te reactive.';
     await sb.auth.signOut();
     return;
   }
 
   const perfil = await buildMeFromAuthUser(data.user.id);
   if(!perfil){ errEl.textContent='No se encontró tu perfil.'; await sb.auth.signOut(); return; }
+  marcarVisto(data.user.id);
 
   await loadLive(); // inscripciones reales, para evaluar la regla de inactividad con datos frescos
   if(profRow && profRow.role==='rep' && isRepDeactivated({role:'rep', n:perfil.n}, new Date(profRow.created_at).getTime())){
@@ -3209,8 +3260,60 @@ function refrescarRivalCardHome(){
   const wrap = document.getElementById('homeRivalCardWrap');
   if(wrap) wrap.innerHTML = rivalCardHTML();
 }
+// ── Frase del día ───────────────────────────────────────────────────────────
+// Es la MISMA para toda la red cada día: así se vuelve tema de conversación en
+// la oficina, no un adorno personal. Rota por fecha, no al azar, para que no
+// cambie cada vez que se repinta la pantalla.
+const FRASES = [
+  {t:'Puedes tener todo lo que quieras en la vida si ayudas a suficientes personas a conseguir lo que ellas quieren.', a:'Zig Ziglar', k:'ventas'},
+  {t:'No desees que sea más fácil; desea ser mejor.', a:'Jim Rohn', k:'ventas'},
+  {t:'Acércate a cada cliente con la idea de ayudarlo a resolver un problema, no de venderle algo.', a:'Brian Tracy', k:'ventas'},
+  {t:'Persistiré hasta alcanzar el éxito.', a:'Og Mandino', k:'ventas'},
+  {t:'El éxito es tu deber, tu obligación y tu responsabilidad.', a:'Grant Cardone', k:'ventas'},
+  {t:'Fallas el 100% de los tiros que no haces.', a:'Wayne Gretzky', k:'ventas'},
+  {t:'La gente no compra lo que haces; compra por qué lo haces.', a:'Simon Sinek', k:'ventas'},
+  {t:'El fracaso es un evento, no una persona.', a:'Zig Ziglar', k:'ventas'},
+  {t:'Tanto si crees que puedes como si crees que no puedes, tienes razón.', a:'Henry Ford', k:'autoayuda'},
+  {t:'Eres el promedio de las cinco personas con las que más tiempo pasas.', a:'Jim Rohn', k:'autoayuda'},
+  {t:'Lo que la mente puede concebir y creer, lo puede lograr.', a:'Napoleon Hill', k:'autoayuda'},
+  {t:'Un líder es alguien que conoce el camino, anda el camino y muestra el camino.', a:'John C. Maxwell', k:'autoayuda'},
+  {t:'La gente dice que la motivación no dura. Bañarse tampoco: por eso se recomienda a diario.', a:'Zig Ziglar', k:'autoayuda'},
+  {t:'Todo lo puedo en Cristo que me fortalece.', a:'Filipenses 4:13', k:'biblia'},
+  {t:'Esfuérzate y sé valiente; no temas ni desmayes, porque Jehová tu Dios estará contigo en dondequiera que vayas.', a:'Josué 1:9', k:'biblia'},
+  {t:'Encomienda a Jehová tus obras, y tus pensamientos serán afirmados.', a:'Proverbios 16:3', k:'biblia'},
+  {t:'La mano de los diligentes señoreará; mas la negligencia será tributaria.', a:'Proverbios 12:24', k:'biblia'},
+  {t:'Los pensamientos del diligente ciertamente tienden a la abundancia.', a:'Proverbios 21:5', k:'biblia'},
+  {t:'No nos cansemos de hacer bien; porque a su tiempo segaremos, si no desmayamos.', a:'Gálatas 6:9', k:'biblia'},
+  {t:'Todo lo que te viniere a la mano para hacer, hazlo según tus fuerzas.', a:'Eclesiastés 9:10', k:'biblia'},
+  {t:'Y todo lo que hagáis, hacedlo de corazón, como para el Señor y no para los hombres.', a:'Colosenses 3:23', k:'biblia'},
+  {t:'Porque no nos ha dado Dios espíritu de cobardía, sino de poder, de amor y de dominio propio.', a:'2 Timoteo 1:7', k:'biblia'}
+];
+const FRASE_ESTILO = {
+  ventas:    {c:'var(--mint)',  w:'var(--mint-w)',  lbl:'Frase del día'},
+  autoayuda: {c:'var(--iris)',  w:'var(--iris-w)',  lbl:'Frase del día'},
+  biblia:    {c:'var(--amber)', w:'var(--amber-w)', lbl:'Versículo del día'}
+};
+function fraseDeHoy(){
+  // Días transcurridos desde una fecha fija, en hora de México: mismo índice
+  // para todos durante todo el día.
+  const hoy = new Date(new Date().toLocaleString('en-US', {timeZone:'America/Mexico_City'}));
+  const dias = Math.floor(Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()) / 86400000);
+  return FRASES[dias % FRASES.length];
+}
+function fraseDelDiaHTML(){
+  const f = fraseDeHoy();
+  const e = FRASE_ESTILO[f.k] || FRASE_ESTILO.ventas;
+  return '<div class="card" style="background:' + e.w + ';border-color:' + e.c + '33">'
+    + '<div class="card-lbl" style="color:' + e.c + '">' + e.lbl + '</div>'
+    + '<div style="font-size:15.5px;line-height:1.5;font-style:italic;margin:2px 0 8px">&ldquo;'
+    + escapeHTML(f.t) + '&rdquo;</div>'
+    + '<div style="font-family:var(--fm);font-size:11.5px;font-weight:700;letter-spacing:.06em;'
+    + 'text-transform:uppercase;color:' + e.c + '">' + escapeHTML(f.a) + '</div>'
+    + '</div>';
+}
 function renderHome(){
   const el = document.getElementById('view-home');
+  const FRASE = fraseDelDiaHTML();   // primera cosa que ve al entrar
   if(ME.role==='rep'){
     const live = validatedTotal(ME.n);
     const pending = pendingTotal(ME.n);
@@ -3228,6 +3331,7 @@ function renderHome(){
     const tierLeveled = detectTierUp(tierName);
     el.innerHTML = `
       <div class="notifs">${notifCards()}</div>
+      ${FRASE}
       <div id="homeRivalCardWrap">${rivalCardHTML()}</div>
       <div class="hero-card">
         <div class="ring-wrap">${svgRing(ringPct)}<div class="ring-val">${live}/${GARANTIA}</div></div>
@@ -3295,6 +3399,7 @@ function renderHome(){
     const pendCount = ggStage.length + supStage.length + gerStage.length;
     el.innerHTML = `
       <div class="notifs">${notifCards()}</div>
+      ${FRASE}
       ${pendCount ? `<div class="notif notif-action" onclick="goView('equipo')"><span class="notif-ico">🔔</span><span><b>${pendCount}</b> inscripción${pendCount>1?'es':''} esperando tu aprobación</span></div>` : ''}
       ${(ME.role==='sup'||ME.role==='gc') ? `<div id="homeRivalCardWrap">${rivalCardHTML()}</div>` : ''}
       <div id="homeRankOficinasWrap">${redRankingOficinasHTML()}</div>
@@ -3814,8 +3919,10 @@ window.addEventListener('resize', ajustarScrollLogoLogin);
   if(!ok) return;
   const perfil = await buildMeFromAuthUser(session.user.id);
   if(!perfil){ await sb.auth.signOut(); return; }
-  const { data: profRow } = await sb.from('profiles').select('manual_block,created_at,role').eq('auth_user_id', session.user.id).single();
+  const { data: profRow } = await sb.from('profiles').select('manual_block,created_at,role,last_seen_at').eq('auth_user_id', session.user.id).single();
   if(profRow && profRow.manual_block){ await sb.auth.signOut(); return; }
+  if(profRow && llevaInactivo(profRow.last_seen_at)){ await sb.auth.signOut(); return; }
+  marcarVisto(session.user.id);
   await loadLive();
   if(profRow && profRow.role==='rep' && isRepDeactivated({role:'rep', n:perfil.n}, new Date(profRow.created_at).getTime())){
     await sb.from('profiles').update({auto_deactivated:true}).eq('auth_user_id', session.user.id);

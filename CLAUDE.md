@@ -83,6 +83,35 @@ cambiarla también ahí** o la página miente.
 Las insignias viejas se piden a mano desde el perfil y caen en `badge_requests`,
 para que un gerente las apruebe.
 
+## Cerrar un mes (checklist)
+
+Cuando un mes termina y sus totales entran a `monthly_totals_closed`,
+`monthly_plan_totals_closed` y `office_monthly_totals_closed`, hay que agregar
+esa clave de mes **en todos estos lugares del `index.html`**. Olvidar uno solo
+descuadra los acumulados — ya pasó con agosto:
+
+1. `const MESES_KEY` — la lista maestra de meses cerrados.
+2. `const MESES_LBL` — su etiqueta visible ('Septiembre', etc.).
+3. El `reps.push({...})` que arma cada representante (`ene:mm.ene||0, …`).
+4. Los cinco `personal:{…}` de sup, gc, distrital, divisional y regional.
+5. El inicializador de `OFFICE_MONTHLY_DIRECT`.
+
+Después de agregarlo, comprobar la regla de oro:
+
+> **El acumulado de cualquier renglón tiene que ser igual a la suma de sus
+> columnas de meses.** Si no cuadra, falta un mes en alguno de esos lugares.
+
+Y actualizar el rango que anuncia `insignias.html` ("Suman tus inscripciones de
+Enero–_mes_ …").
+
+### Por qué el acumulado no se suma desde `.t`
+
+El campo `.t` de un supervisor o gerente **ya trae a su equipo dentro**. Sumarlo
+junto a los renglones de ese mismo equipo cuenta al equipo dos veces (tres, en
+gerentes comerciales, porque además pasa por sus supervisores). Por eso
+`totalesPorMes()` calcula el acumulado sumando las columnas de meses ya
+resueltas, y nunca los `.t` de los líderes. No volver a sumar `.t` ahí.
+
 ## Cómo se publica (no se sube nada a mano)
 
 Netlify está conectado a este repo. No hay build: sirve los archivos tal cual.

@@ -867,7 +867,7 @@ async function loadDirectoryFromSupabase(){
   (oficDirecta||[]).forEach(r=>{
     const nombre = r.offices ? r.offices.name : null;
     if(!nombre) return;
-    const acc = (OFFICE_MONTHLY_DIRECT[nombre] = OFFICE_MONTHLY_DIRECT[nombre] || {ene:0,feb:0,mar:0,abr:0,may:0,jun:0,jul:0,t:0});
+    const acc = (OFFICE_MONTHLY_DIRECT[nombre] = OFFICE_MONTHLY_DIRECT[nombre] || {ene:0,feb:0,mar:0,abr:0,may:0,jun:0,jul:0,ago:0,t:0});
     acc[r.month] = r.total;
     acc.t += r.total;
   });
@@ -899,7 +899,7 @@ async function loadDirectoryFromSupabase(){
         sup:nameOf(p.supervisor_id), gc:nameOf(p.gc_id),
         gdt:nameOf(p.distrital_id), gdv:nameOf(p.divisional_id), gr:nameOf(p.regional_id),
         t3:p.t3_count||0, t5:p.t5_count||0, t10:p.t10_count||0,
-        ene:mm.ene||0, feb:mm.feb||0, mar:mm.mar||0, abr:mm.abr||0, may:mm.may||0, jun:mm.jun||0, jul:mm.jul||0,
+        ene:mm.ene||0, feb:mm.feb||0, mar:mm.mar||0, abr:mm.abr||0, may:mm.may||0, jun:mm.jun||0, jul:mm.jul||0, ago:mm.ago||0,
         officeId:p.office_id, planHist: PLAN_HIST_BY_PROFILE[p.id] || {A:0,B:0,C:0,D:0,E:0,F:0}
       });
     } else if(p.role==='sup'){
@@ -2177,6 +2177,16 @@ const MESES_KEY = ['ene','feb','mar','abr','may','jun','jul','ago'];
 const MESES_LBL = {total:'Acum.', ene:'Enero', feb:'Febrero', mar:'Marzo', abr:'Abril', may:'Mayo', jun:'Junio', jul:'Julio', ago:'Agosto'};
 const CAT_LBL = {rep:'Representantes', gc:'G. Comerciales', sup:'Supervisores', oficina:'Oficinas', distrital:'Distritales', divisional:'Divisionales', regional:'Regionales', portal:'Portal'};
 function sumField(reps, k){ return reps.reduce((s,r)=>s+(r[k]||0),0); }
+// Aplana las ventas PERSONALES de un líder a nivel de renglón (0 en los meses que no vendió).
+function mesesPersonalDe(x){ const o={}; MESES_KEY.forEach(k=> o[k] = (x.personal && x.personal[k]) || 0); return o; }
+// El acumulado de una categoría se suma SIEMPRE desde los meses ya calculados.
+// Nunca desde el .t de un líder: ese campo ya trae a su equipo dentro, y sumarlo
+// junto a los renglones del equipo contaba a todo el equipo dos veces.
+function totalesPorMes(todos){
+  const o={}; MESES_KEY.forEach(k=> o[k]=sumField(todos,k));
+  o.t = MESES_KEY.reduce((a,k)=>a+o[k],0);
+  return o;
+}
 // Ventas personales de Sup/GC/Distrital/Divisional/Regional también compiten en el ranking de Representante
 // (solo su renglón personal, nunca el total de su equipo).
 function repEntriesConPersonal(){
@@ -2225,11 +2235,11 @@ function liderazgoCategoryList(nivel, campo){
     // Las ventas PERSONALES del propio líder cuentan igual que las de su equipo.
     const yoMismo = LIDERAZGO_PERSONAL.find(l=> l.n===name);
     const propio = yoMismo ? [{t:yoMismo.t, ...yoMismo.personal, f:yoMismo.f}] : [];
-    const todos = [...reps, ...propio, ...supsAqui.map(s=>({t:s.t, ene:s.personal?.ene||0, feb:s.personal?.feb||0, mar:s.personal?.mar||0, abr:s.personal?.abr||0, may:s.personal?.may||0, jun:s.personal?.jun||0, jul:s.personal?.jul||0, f:s.f})),
-      ...gcsAqui.map(g=>({t:g.t, ene:g.personal?.ene||0, feb:g.personal?.feb||0, mar:g.personal?.mar||0, abr:g.personal?.abr||0, may:g.personal?.may||0, jun:g.personal?.jun||0, jul:g.personal?.jul||0, f:g.f}))];
+    const todos = [...reps, ...propio, ...supsAqui.map(s=>({...mesesPersonalDe(s), f:s.f})),
+      ...gcsAqui.map(g=>({...mesesPersonalDe(g), f:g.f}))];
     const oficinasEquipo = [...new Set(todos.map(r=>r.f))].join(', ');
     const oficinas = oficinasEquipo || (yoMismo ? yoMismo.f : '') || 'Sin equipo asignado';
-    return {n:name, f:oficinas, t:sumField(todos,'t'), ene:sumField(todos,'ene'), feb:sumField(todos,'feb'), mar:sumField(todos,'mar'), abr:sumField(todos,'abr'), may:sumField(todos,'may'), jun:sumField(todos,'jun'), jul:sumField(todos,'jul')};
+    return {n:name, f:oficinas, ...totalesPorMes(todos)};
   });
 }
 function gcCategoryList(){
@@ -2237,8 +2247,8 @@ function gcCategoryList(){
     const reps = SEED_REPS.filter(r=> norm(r.gc)===norm(g.n));
     const supsAqui = SEED_SUP.filter(s=> norm(s.gc)===norm(g.n));
     const propio = {t:g.t, ...g.personal, f:g.f};
-    const todos = [...reps, ...supsAqui.map(s=>({t:s.t, ene:s.personal?.ene||0, feb:s.personal?.feb||0, mar:s.personal?.mar||0, abr:s.personal?.abr||0, may:s.personal?.may||0, jun:s.personal?.jun||0, jul:s.personal?.jul||0, f:s.f})), propio];
-    return {n:g.n, f:g.f, t:sumField(todos,'t'), ene:sumField(todos,'ene'), feb:sumField(todos,'feb'), mar:sumField(todos,'mar'), abr:sumField(todos,'abr'), may:sumField(todos,'may'), jun:sumField(todos,'jun'), jul:sumField(todos,'jul')};
+    const todos = [...reps, ...supsAqui.map(s=>({...mesesPersonalDe(s), f:s.f})), propio];
+    return {n:g.n, f:g.f, ...totalesPorMes(todos)};
   });
 }
 function supCategoryList(){
@@ -2246,7 +2256,7 @@ function supCategoryList(){
     const reps = SEED_REPS.filter(r=> norm(r.sup)===norm(s.n));
     const propio = {t:s.t, ...s.personal, f:s.f};
     const todos = [...reps, propio];
-    return {n:s.n, f:s.f, t:sumField(todos,'t'), ene:sumField(todos,'ene'), feb:sumField(todos,'feb'), mar:sumField(todos,'mar'), abr:sumField(todos,'abr'), may:sumField(todos,'may'), jun:sumField(todos,'jun'), jul:sumField(todos,'jul')};
+    return {n:s.n, f:s.f, ...totalesPorMes(todos)};
   });
 }
 function categoryList(cat){

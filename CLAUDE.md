@@ -222,10 +222,27 @@ explícitamente** o la escritura falla en silencio.
 
 ## Frase del día
 
-`FRASES` en el `index.html`: ventas, autoayuda y versículos (Reina-Valera
-1960). Rota **por fecha, no al azar** — la misma para toda la red cada día, para
-que se vuelva tema de conversación en la oficina. El ciclo completo dura tantos
-días como frases haya; agregar más lo alarga solo.
+`FRASES` en el `index.html`, en cinco familias con su propio color y etiqueta:
+
+| Familia | Etiqueta | Ejemplos |
+|---|---|---|
+| `ventas` | Frase del día | Ziglar, Rohn, Tracy, Cardone, Sinek, Carnegie |
+| `autoayuda` | Frase del día | Robbins, Covey, Hill, Maxwell, Angelou, Ford |
+| `estoicos` | De los estoicos | Marco Aurelio, Séneca, Epicteto |
+| `literatura` | De la literatura | Shakespeare, Milton, Kipling, Tennyson, Shaw |
+| `biblia` | Versículo del día | Reina-Valera 1960 |
+
+Rota **por fecha, no al azar**: la misma para toda la red cada día, para que se
+vuelva tema de conversación. `FRASES_ORDEN` recorre las familias **en ronda**
+(ventas → autoayuda → estoicos → literatura → versículo → …), así que dos días
+seguidos nunca caen del mismo tipo. Al agregar frases el reparto se reacomoda
+solo y el ciclo se alarga.
+
+Para agregar una, basta con un renglón más en `FRASES` con su `k`. **Verifica la
+atribución antes**: circulan muchas citas famosas mal atribuidas — por ejemplo
+"la suerte es lo que pasa cuando la preparación se encuentra con la oportunidad"
+se le cuelga a Séneca y no es suya. Cuando una cita venga de una obra, se anota
+(`Marco Aurelio · Meditaciones`).
 
 ## Cómo se publica (no se sube nada a mano)
 

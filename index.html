@@ -3288,19 +3288,51 @@ function refrescarRivalCardHome(){
 // la oficina, no un adorno personal. Rota por fecha, no al azar, para que no
 // cambie cada vez que se repinta la pantalla.
 const FRASES = [
+  // ── Ventas ──────────────────────────────────────────────────────────────
   {t:'Puedes tener todo lo que quieras en la vida si ayudas a suficientes personas a conseguir lo que ellas quieren.', a:'Zig Ziglar', k:'ventas'},
+  {t:'El fracaso es un evento, no una persona.', a:'Zig Ziglar', k:'ventas'},
+  {t:'No tienes que ser grandioso para empezar, pero tienes que empezar para ser grandioso.', a:'Zig Ziglar', k:'ventas'},
   {t:'No desees que sea más fácil; desea ser mejor.', a:'Jim Rohn', k:'ventas'},
   {t:'Acércate a cada cliente con la idea de ayudarlo a resolver un problema, no de venderle algo.', a:'Brian Tracy', k:'ventas'},
   {t:'Persistiré hasta alcanzar el éxito.', a:'Og Mandino', k:'ventas'},
   {t:'El éxito es tu deber, tu obligación y tu responsabilidad.', a:'Grant Cardone', k:'ventas'},
   {t:'Fallas el 100% de los tiros que no haces.', a:'Wayne Gretzky', k:'ventas'},
   {t:'La gente no compra lo que haces; compra por qué lo haces.', a:'Simon Sinek', k:'ventas'},
-  {t:'El fracaso es un evento, no una persona.', a:'Zig Ziglar', k:'ventas'},
+  {t:'Puedes hacer más amigos en dos meses interesándote por los demás que en dos años tratando de que se interesen por ti.', a:'Dale Carnegie', k:'ventas'},
+
+  // ── Autoayuda ───────────────────────────────────────────────────────────
+  {t:'Donde va el foco, fluye la energía.', a:'Tony Robbins', k:'autoayuda'},
+  {t:'Es en tus momentos de decisión donde se forja tu destino.', a:'Tony Robbins', k:'autoayuda'},
   {t:'Tanto si crees que puedes como si crees que no puedes, tienes razón.', a:'Henry Ford', k:'autoayuda'},
   {t:'Eres el promedio de las cinco personas con las que más tiempo pasas.', a:'Jim Rohn', k:'autoayuda'},
   {t:'Lo que la mente puede concebir y creer, lo puede lograr.', a:'Napoleon Hill', k:'autoayuda'},
   {t:'Un líder es alguien que conoce el camino, anda el camino y muestra el camino.', a:'John C. Maxwell', k:'autoayuda'},
   {t:'La gente dice que la motivación no dura. Bañarse tampoco: por eso se recomienda a diario.', a:'Zig Ziglar', k:'autoayuda'},
+  {t:'Empieza con el fin en mente.', a:'Stephen R. Covey', k:'autoayuda'},
+  {t:'La gente olvidará lo que dijiste y lo que hiciste, pero nunca olvidará cómo la hiciste sentir.', a:'Maya Angelou', k:'autoayuda'},
+  {t:'El genio es uno por ciento inspiración y noventa y nueve por ciento transpiración.', a:'Thomas A. Edison', k:'autoayuda'},
+  {t:'Haz lo que puedas, con lo que tengas, donde estés.', a:'Theodore Roosevelt', k:'autoayuda'},
+
+  // ── Estoicos ────────────────────────────────────────────────────────────
+  {t:'Tienes poder sobre tu mente, no sobre los acontecimientos externos. Date cuenta de esto y encontrarás tu fuerza.', a:'Marco Aurelio · Meditaciones', k:'estoicos'},
+  {t:'Lo que se interpone en el camino se convierte en el camino.', a:'Marco Aurelio · Meditaciones', k:'estoicos'},
+  {t:'La felicidad de tu vida depende de la calidad de tus pensamientos.', a:'Marco Aurelio · Meditaciones', k:'estoicos'},
+  {t:'No nos atrevemos a muchas cosas porque son difíciles; son difíciles porque no nos atrevemos.', a:'Séneca · Cartas a Lucilio', k:'estoicos'},
+  {t:'Mientras aplazamos, la vida pasa.', a:'Séneca · Cartas a Lucilio', k:'estoicos'},
+  {t:'Para quien no sabe a qué puerto se dirige, ningún viento es favorable.', a:'Séneca · Cartas a Lucilio', k:'estoicos'},
+  {t:'No son las cosas las que perturban a los hombres, sino la opinión que tienen de ellas.', a:'Epicteto · Enquiridión', k:'estoicos'},
+  {t:'No pretendas que las cosas sucedan como tú quieres; desea que sucedan como suceden, y vivirás sereno.', a:'Epicteto · Enquiridión', k:'estoicos'},
+
+  // ── Literatura inglesa ──────────────────────────────────────────────────
+  {t:'La culpa, querido Bruto, no está en nuestras estrellas, sino en nosotros mismos.', a:'Shakespeare · Julio César', k:'literatura'},
+  {t:'Nada es bueno ni malo: es el pensamiento el que lo hace así.', a:'Shakespeare · Hamlet', k:'literatura'},
+  {t:'La mente es su propio lugar, y puede hacer un cielo del infierno o un infierno del cielo.', a:'John Milton · El paraíso perdido', k:'literatura'},
+  {t:'Si puedes encontrarte con el Triunfo y el Desastre, y tratar a esos dos impostores por igual…', a:'Rudyard Kipling · Si—', k:'literatura'},
+  {t:'Luchar, buscar, encontrar y no rendirse.', a:'Alfred Tennyson · Ulises', k:'literatura'},
+  {t:'Quien progresa en este mundo busca las circunstancias que quiere y, si no las encuentra, las crea.', a:'George Bernard Shaw', k:'literatura'},
+  {t:'Las grandes obras no se logran con la fuerza, sino con la perseverancia.', a:'Samuel Johnson', k:'literatura'},
+
+  // ── Versículos (Reina-Valera 1960) ──────────────────────────────────────
   {t:'Todo lo puedo en Cristo que me fortalece.', a:'Filipenses 4:13', k:'biblia'},
   {t:'Esfuérzate y sé valiente; no temas ni desmayes, porque Jehová tu Dios estará contigo en dondequiera que vayas.', a:'Josué 1:9', k:'biblia'},
   {t:'Encomienda a Jehová tus obras, y tus pensamientos serán afirmados.', a:'Proverbios 16:3', k:'biblia'},
@@ -3311,17 +3343,34 @@ const FRASES = [
   {t:'Y todo lo que hagáis, hacedlo de corazón, como para el Señor y no para los hombres.', a:'Colosenses 3:23', k:'biblia'},
   {t:'Porque no nos ha dado Dios espíritu de cobardía, sino de poder, de amor y de dominio propio.', a:'2 Timoteo 1:7', k:'biblia'}
 ];
+// Los tonos van literales y no como variables de tema: la app se fuerza en claro,
+// y así cada familia conserva su color aunque algún día vuelva el modo oscuro.
 const FRASE_ESTILO = {
-  ventas:    {c:'var(--mint)',  w:'var(--mint-w)',  lbl:'Frase del día'},
-  autoayuda: {c:'var(--iris)',  w:'var(--iris-w)',  lbl:'Frase del día'},
-  biblia:    {c:'var(--amber)', w:'var(--amber-w)', lbl:'Versículo del día'}
+  ventas:     {c:'var(--mint)', w:'rgba(14,158,117,.10)',  lbl:'Frase del día'},
+  autoayuda:  {c:'var(--iris)', w:'rgba(101,82,230,.10)',  lbl:'Frase del día'},
+  estoicos:   {c:'var(--sky)',  w:'rgba(26,143,191,.11)',  lbl:'De los estoicos'},
+  literatura: {c:'#B24A2E',     w:'rgba(178,74,46,.10)',   lbl:'De la literatura'},
+  biblia:     {c:'var(--amber)',w:'rgba(201,124,5,.11)',   lbl:'Versículo del día'}
 };
+// Se recorren las familias en ronda (ventas → autoayuda → estoicos → literatura →
+// versículo → ventas…) para que dos días seguidos nunca caigan del mismo tipo.
+// Al agregar frases nuevas el reparto se reacomoda solo.
+const FRASES_ORDEN = (() => {
+  const porTipo = {};
+  FRASES.forEach(f => (porTipo[f.k] = porTipo[f.k] || []).push(f));
+  const tipos = Object.keys(FRASE_ESTILO).filter(k => porTipo[k] && porTipo[k].length);
+  const orden = [];
+  for (let i = 0; orden.length < FRASES.length; i++) {
+    tipos.forEach(k => { if (porTipo[k][i]) orden.push(porTipo[k][i]); });
+  }
+  return orden;
+})();
 function fraseDeHoy(){
   // Días transcurridos desde una fecha fija, en hora de México: mismo índice
   // para todos durante todo el día.
   const hoy = new Date(new Date().toLocaleString('en-US', {timeZone:'America/Mexico_City'}));
   const dias = Math.floor(Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()) / 86400000);
-  return FRASES[dias % FRASES.length];
+  return FRASES_ORDEN[dias % FRASES_ORDEN.length];
 }
 function fraseDelDiaHTML(){
   const f = fraseDeHoy();

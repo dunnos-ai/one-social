@@ -303,6 +303,13 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;overscrol
 .pm-name{font-family:var(--fd);font-size:18px;font-weight:800;color:var(--bone);letter-spacing:-.02em;line-height:1.25;}
 .pm-role{font-family:var(--fm);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin-top:3px;}
 .pm-bio{font-size:13px;color:var(--t2);line-height:1.5;margin-top:8px;}
+/* Rango de carrera — sólo se pinta en tu perfil y en el de tus amigos. Sin color-mix:
+   el borde y el texto llevan el color del rango y el fondo es una superficie neutra,
+   para que se vea igual en navegadores viejos de Android. */
+.pm-tier{display:inline-flex;align-items:center;gap:7px;margin-top:9px;padding:6px 12px;
+  border-radius:999px;background:var(--s2);border:1px solid var(--tier-c);}
+.pm-tier-name{font-family:var(--fd);font-weight:700;font-size:13.5px;color:var(--tier-c);}
+.pm-tier-req{font-family:var(--fm);font-size:10.5px;color:var(--t3);}
 .pm-social-row{display:flex;gap:8px;margin-top:10px;}
 .pm-actions{margin-bottom:6px;}
 .pm-actions .friend-btn,.pm-actions .friend-req-actions{width:100%;justify-content:center;}
@@ -1602,6 +1609,7 @@ function renderProfile(name){
       <div class="pm-info">
         <div class="pm-name">${name}${esCumple ? ' 🎂' : ''}</div>
         <div class="pm-role">${identity.roleLbl}${metaLine?' · '+metaLine:''}</div>
+        ${(isMe || status==='amigos') ? chipDeRangoHTML(liveDeEstaPersona) : ''}
         ${extra.bio ? `<div class="pm-bio">${escapeHTML(extra.bio)}</div>` : ''}
         ${socialLinksHTML ? `<div class="pm-social-row">${socialLinksHTML}</div>` : ''}
       </div>
@@ -2517,6 +2525,21 @@ const RANGOS_DEF = [
 function currentTierName(liveMonth){
   const tier = RANGOS_DEF.find(r=> liveMonth>=r.min && liveMonth<=r.max) || RANGOS_DEF[RANGOS_DEF.length-1];
   return tier.name;
+}
+// El rango de carrera (Recluta → Élite) sale de las inscripciones del MES EN CURSO,
+// que fuera de tu oficina se muestra anónimo a propósito. Por eso este chip sólo
+// aparece en tu propio perfil y en el de tus amigos: la amistad es la excepción
+// explícita a esa privacidad.
+function tierDe(liveMonth){
+  return RANGOS_DEF.find(r => liveMonth >= r.min && liveMonth <= r.max) || RANGOS_DEF[RANGOS_DEF.length-1];
+}
+function chipDeRangoHTML(liveMonth){
+  const t = tierDe(liveMonth);
+  return '<div class="pm-tier" style="--tier-c:' + t.col + '">'
+    + ico(t.ico, 'var(--tier-c)', 15)
+    + '<span class="pm-tier-name">' + t.name + '</span>'
+    + '<span class="pm-tier-req">' + t.min + (isFinite(t.max) ? '\u2013' + t.max : '+') + ' insc./mes</span>'
+    + '</div>';
 }
 function rangosHTML(liveMonth, t3){
   const rows = RANGOS_DEF.map(r=>{

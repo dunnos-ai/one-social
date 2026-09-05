@@ -147,6 +147,32 @@ gerentes comerciales, porque además pasa por sus supervisores). Por eso
 `totalesPorMes()` calcula el acumulado sumando las columnas de meses ya
 resueltas, y nunca los `.t` de los líderes. No volver a sumar `.t` ahí.
 
+## Qué es público y qué es anónimo
+
+Dos cosas distintas que se confunden fácil:
+
+| | Se ve | Dónde |
+|---|---|---|
+| **Meses cerrados** (acumulado, E–_mes_) | Con nombre, para toda la red | Ranking (Acum. y por mes), perfiles |
+| **Mes en curso — tarjeta de rivalidad** | Anónimo: "⬡ Rival A/B/C" | Home |
+| **Mes en curso — pestaña 🔴 En vivo** | Con nombre | Ranking |
+| **Rango de carrera** (Recluta→Élite) | Sólo tú y tus amigos | Perfil |
+
+El mes en curso **no es anónimo en general**. Lo que hace la función
+`ranking_categoria_vivo` es limitar por rol: **si quien consulta es `rep`, sólo
+ve con nombre a la gente de su propia oficina**; fuera de ahí le queda la
+tarjeta anónima. Un sup, gc o líder ve la red completa con nombres.
+
+Por eso el rango de carrera del perfil se muestra **sólo a ti y a tus amigos**:
+sale del mes en curso, y la amistad es la excepción explícita a esa privacidad.
+La tabla de amigos sigue la misma regla — sólo lista a amigos aceptados.
+
+> **Ojo:** el anonimato es de interfaz, no de datos. `loadLive()` baja a cada
+> navegador las últimas 2000 inscripciones **con nombre**, sin filtrar por rol.
+> Quien sepa abrir la consola puede ver quién es cada "Rival". Si el anonimato
+> tiene que ser real, esa consulta debe pasar por una función que filtre en el
+> servidor.
+
 ## Acceso: bloqueo por inactividad
 
 `profiles.last_seen_at` se sella al entrar, y también por trigger cuando se

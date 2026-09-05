@@ -163,6 +163,14 @@ El mes en curso **no es anónimo en general**. Lo que hace la función
 ve con nombre a la gente de su propia oficina**; fuera de ahí le queda la
 tarjeta anónima. Un sup, gc o líder ve la red completa con nombres.
 
+**Un Gerente Regional ve sus oficinas por nombre.** Hubo una regla que le dejaba
+sólo su oficina base y le mostraba el resto como "Oficina A, B, C…". Estaba
+escrita en **tres lugares** y hay que quitarla de los tres o el síntoma vuelve:
+`buildMeFromAuthUser` y el portal por oficina en el `index.html`, y las
+funciones `red_ranking_oficinas_vivo` y `oficina_detalle_vivo` en Supabase.
+La autorización sigue saliendo de `profile_offices`: cada quien sólo alcanza
+las oficinas que tiene asignadas.
+
 Por eso el rango de carrera del perfil se muestra **sólo a ti y a tus amigos**:
 sale del mes en curso, y la amistad es la excepción explícita a esa privacidad.
 La tabla de amigos sigue la misma regla — sólo lista a amigos aceptados.

@@ -67,3 +67,16 @@ drop table if exists public.claim_tokens;
 ```
 
 Y borrar `reclama.html` junto con el bloque `#reclamar=` del `index.html`.
+
+---
+
+## Otras migraciones aplicadas desde el chat
+
+Quedan guardadas en Supabase → Database → Migrations:
+
+- `claim_token_y_reclamo_por_token` y `mover_claim_token_a_tabla_cerrada`
+- `reclamo_devuelve_profile_id`, `reclamo_usa_mejor_mes`
+- `cerrar_escritura_de_profiles_y_last_seen` — cierra el UPDATE de `profiles`
+- `actividad_por_inscripcion` — trigger que sella `last_seen_at`
+- `regional_ve_sus_oficinas_por_nombre` — quita la anonimización de oficinas
+  para gerentes regionales en `red_ranking_oficinas_vivo` y `oficina_detalle_vivo`

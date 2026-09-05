@@ -360,6 +360,19 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;overscrol
 .edit-social-field{display:flex;align-items:center;gap:8px;border-radius:14px;border:1px solid var(--line);background:var(--s2);padding:0 12px;min-width:0;}
 .edit-social-field svg{flex-shrink:0;}
 .edit-social-field input{border:none;background:transparent;flex:1;min-width:0;width:auto;}
+/* ══ EMBUDO DE KPIs ══ */
+.embudo{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);}
+.emb-fila{display:flex;align-items:center;gap:10px;}
+.emb-lbl{font-family:var(--fm);font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--t2);width:86px;flex-shrink:0;}
+.emb-barra{flex:1;height:14px;border-radius:7px;background:var(--s2);overflow:hidden;}
+.emb-fill{height:100%;border-radius:7px;transition:width .35s ease;}
+.emb-val{font-family:var(--fd);font-weight:700;font-size:15px;width:36px;text-align:right;flex-shrink:0;}
+.emb-salto{font-family:var(--fm);font-size:10px;color:var(--t3);margin:3px 0 3px 96px;}
+.emb-resumen{margin-top:11px;padding:10px 12px;border-radius:12px;background:var(--mint-w);
+  font-size:12.5px;color:var(--t2);text-align:center;}
+.emb-resumen b{font-family:var(--fd);font-size:15px;color:var(--mint);}
+
 .edit-divider{font-family:var(--fm);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t3);margin:16px 0 8px;padding-top:14px;border-top:1px solid var(--line);}
 
 /* ══ POST ESTILO X/THREADS — pensado para verse bien en una captura de pantalla ══ */
@@ -996,6 +1009,7 @@ const ICONS = {
   checkcircle: '<circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.6 2.6L16.3 9"/>',
   search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="M20 20l-5-5"/>',
   lock: '<rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
+  bookmark: '<path d="M6 4h12a1 1 0 0 1 1 1v15l-7-4-7 4V5a1 1 0 0 1 1-1Z"/>',
   building: '<rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M8 7h2M14 7h2M8 11h2M14 11h2M8 15h2M14 15h2"/><path d="M10 21v-4h4v4"/>',
   send: '<path d="M12 19V5"/><path d="M6 11l6-6 6 6"/>',
   mic: '<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0"/><path d="M12 17v4M9 21h6"/>',
@@ -2769,9 +2783,11 @@ function todayISO(){ const d=new Date(); return d.getFullYear()+'-'+String(d.get
 const MESES_TODAS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 function mesKeyFromFecha(fechaISO){ return MESES_TODAS[parseInt(fechaISO.slice(5,7),10)-1]; }
 async function loadActv(){
-  const inicioMes = new Date(); inicioMes.setDate(1);
-  const inicioISO = inicioMes.getFullYear()+'-'+String(inicioMes.getMonth()+1).padStart(2,'0')+'-01';
-  const { data, error } = await sb.from('activity_log').select('profile_id,fecha,llamadas,citas,presencial,virtual')
+  // Se cargan 12 meses, no sólo el mes en curso. Antes, al cambiar de mes, toda la
+  // actividad capturada desaparecía de la pantalla y parecía que no se había guardado.
+  const desde = new Date(); desde.setMonth(desde.getMonth()-11); desde.setDate(1);
+  const inicioISO = desde.getFullYear()+'-'+String(desde.getMonth()+1).padStart(2,'0')+'-01';
+  const { data, error } = await sb.from('activity_log').select('profile_id,fecha,llamadas,citas,presencial,virtual,apartados')
     .eq('profile_id', ME && ME.data ? ME.data.id : '00000000-0000-0000-0000-000000000000')
     .gte('fecha', inicioISO);
   if(error){ console.error('activity_log', error); return; }
@@ -2779,30 +2795,46 @@ async function loadActv(){
   // todavía no terminaba cuando llegó esta lectura, no queremos que el número "regrese"
   // a su valor anterior — nos quedamos con el mayor de los dos, campo por campo.
   const fresh = {};
-  (data||[]).forEach(row=>{ fresh[row.fecha] = {llamadas:row.llamadas, citas:row.citas, presencial:row.presencial, virtual:row.virtual}; });
+  (data||[]).forEach(row=>{ fresh[row.fecha] = {llamadas:row.llamadas, citas:row.citas, presencial:row.presencial, virtual:row.virtual, apartados:row.apartados||0}; });
   const fechas = new Set([...Object.keys(ACTV_DIA), ...Object.keys(fresh)]);
   const merged = {};
   fechas.forEach(fecha=>{
-    const a = ACTV_DIA[fecha] || {llamadas:0,citas:0,presencial:0,virtual:0};
-    const b = fresh[fecha] || {llamadas:0,citas:0,presencial:0,virtual:0};
+    const a = ACTV_DIA[fecha] || {llamadas:0,citas:0,presencial:0,virtual:0,apartados:0};
+    const b = fresh[fecha] || {llamadas:0,citas:0,presencial:0,virtual:0,apartados:0};
     merged[fecha] = {
       llamadas: Math.max(a.llamadas||0, b.llamadas||0),
       citas: Math.max(a.citas||0, b.citas||0),
       presencial: Math.max(a.presencial||0, b.presencial||0),
-      virtual: Math.max(a.virtual||0, b.virtual||0)
+      virtual: Math.max(a.virtual||0, b.virtual||0),
+      apartados: Math.max(a.apartados||0, b.apartados||0)
     };
   });
   ACTV_DIA = merged;
 }
-function myActv(fecha){ return ACTV_DIA[fecha||ACTV_FECHA_SEL] || {llamadas:0,citas:0,presencial:0,virtual:0}; }
+function myActv(fecha){ return ACTV_DIA[fecha||ACTV_FECHA_SEL] || {llamadas:0,citas:0,presencial:0,virtual:0,apartados:0}; }
 function actvSumaRango(desdeISO, hastaISO){
-  const out = {llamadas:0,citas:0,presencial:0,virtual:0};
+  const out = {llamadas:0,citas:0,presencial:0,virtual:0,apartados:0};
   Object.entries(ACTV_DIA).forEach(([fecha, v])=>{
     if(fecha>=desdeISO && fecha<=hastaISO){
-      out.llamadas+=v.llamadas||0; out.citas+=v.citas||0; out.presencial+=v.presencial||0; out.virtual+=v.virtual||0;
+      out.llamadas+=v.llamadas||0; out.citas+=v.citas||0; out.presencial+=v.presencial||0;
+      out.virtual+=v.virtual||0;  out.apartados+=v.apartados||0;
     }
   });
   return out;
+}
+// Fecha más antigua con actividad capturada — el inicio del histórico de esa persona.
+function primeraFechaActv(){
+  const fechas = Object.keys(ACTV_DIA).sort();
+  return fechas.length ? fechas[0] : todayISO();
+}
+// Inscripciones validadas en el mismo rango de fechas que la actividad, para que el
+// embudo compare peras con peras.
+function inscripcionesEnRango(desdeISO, hastaISO){
+  const ini = new Date(desdeISO+'T00:00:00').getTime();
+  const fin = new Date(hastaISO+'T23:59:59').getTime();
+  return INSC.filter(i=> i.nombre===ME.n && i.ts>=ini && i.ts<=fin
+      && (i.estado===ESTADOS.VALIDADA || i.estado===ESTADOS.GG_OK))
+    .reduce((s,i)=>s+i.cantidad, 0);
 }
 function inicioSemanaISO(fechaISO){
   const d = new Date(fechaISO+'T00:00:00');
@@ -2812,54 +2844,93 @@ function inicioSemanaISO(fechaISO){
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 async function adjActv(field, delta){
-  const cur = ACTV_DIA[ACTV_FECHA_SEL] || {llamadas:0,citas:0,presencial:0,virtual:0};
+  const cur = ACTV_DIA[ACTV_FECHA_SEL] || {llamadas:0,citas:0,presencial:0,virtual:0,apartados:0};
   cur[field] = Math.max(0, (cur[field]||0)+delta);
   ACTV_DIA[ACTV_FECHA_SEL] = cur;
   renderCurrentView();
   const { error } = await sb.from('activity_log').upsert({
     profile_id: ME.data.id, fecha: ACTV_FECHA_SEL, mes: mesKeyFromFecha(ACTV_FECHA_SEL),
-    llamadas:cur.llamadas, citas:cur.citas, presencial:cur.presencial, virtual:cur.virtual
+    llamadas:cur.llamadas, citas:cur.citas, presencial:cur.presencial, virtual:cur.virtual,
+    apartados:cur.apartados||0
   }, {onConflict:'profile_id,fecha'});
   if(error){ console.error('adjActv', error); showToast('❌ No se pudo guardar tu actividad — intenta de nuevo'); }
 }
-let ACTV_TAB = 'hoy'; // 'hoy' | 'semana' | 'mes'
+let ACTV_TAB = 'hoy'; // 'hoy' | 'semana' | 'mes' | 'historico'
 function setActvTab(tab){ ACTV_TAB = tab; renderCurrentView(); }
+
+// ── Embudo: de la llamada hasta la inscripción ──────────────────────────────
+// Cada peldaño muestra cuántos llegaron y qué porcentaje pasó del peldaño anterior.
+// Ahí se ve dónde se está cayendo la venta, que es lo que un asesor puede corregir.
+function embudoHTML(a, inscripciones){
+  const charlas = (a.presencial||0) + (a.virtual||0);
+  const pasos = [
+    {lbl:'Llamadas',      v:a.llamadas||0,   c:'var(--azul)'},
+    {lbl:'Citas',         v:a.citas||0,      c:'var(--morado)'},
+    {lbl:'Charlas',       v:charlas,         c:'var(--verde)'},
+    {lbl:'Apartados',     v:a.apartados||0,  c:'var(--terracota)'},
+    {lbl:'Inscripciones', v:inscripciones||0,c:'var(--gold)'}
+  ];
+  const tope = Math.max(1, ...pasos.map(p=>p.v));
+  const filas = pasos.map((p,i)=>{
+    const prev = i ? pasos[i-1].v : null;
+    const pct = (prev===null) ? null : (prev ? Math.round(p.v/prev*100) : null);
+    const ancho = Math.max(3, Math.round(p.v/tope*100));
+    const salto = (pct===null) ? '' :
+      '<div class="emb-salto">' + (pct===null ? '' : '↓ ' + pct + '%') + '</div>';
+    return salto
+      + '<div class="emb-fila">'
+      +   '<div class="emb-lbl">' + p.lbl + '</div>'
+      +   '<div class="emb-barra"><div class="emb-fill" style="width:' + ancho + '%;background:' + p.c + '"></div></div>'
+      +   '<div class="emb-val">' + p.v + '</div>'
+      + '</div>';
+  }).join('');
+
+  const llam = a.llamadas||0, ins = inscripciones||0;
+  const global = llam ? (ins/llam*100) : null;
+  const resumen = global===null
+    ? 'Registra tus llamadas para ver tu porcentaje de cierre.'
+    : (ins===0
+        ? 'Todavía sin cierres en este periodo. Llevas ' + llam + ' llamada' + (llam===1?'':'s') + '.'
+        : 'De cada 100 llamadas, <b>' + (global>=1 ? Math.round(global) : global.toFixed(1))
+          + '</b> terminan en inscripción.');
+  return '<div class="embudo">' + filas + '</div>'
+       + '<div class="emb-resumen">' + resumen + '</div>';
+}
+
 function actividadCardHTML(){
   const hoyISO = todayISO();
   const esHoy = ACTV_FECHA_SEL===hoyISO;
-  let a, live, periodoLbl;
+  let a, desde, hasta, periodoLbl;
   if(ACTV_TAB==='hoy'){
-    a = myActv(ACTV_FECHA_SEL);
-    live = ACTV_FECHA_SEL===hoyISO ? validatedTotal(ME.n) : null; // el ratio de cierre solo aplica bien para hoy/mes
+    a = myActv(ACTV_FECHA_SEL); desde = hasta = ACTV_FECHA_SEL;
     periodoLbl = esHoy ? 'Hoy' : new Date(ACTV_FECHA_SEL+'T00:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'short'});
   } else if(ACTV_TAB==='semana'){
-    const inicio = inicioSemanaISO(hoyISO);
-    a = actvSumaRango(inicio, hoyISO);
-    live = null;
-    periodoLbl = 'Esta semana';
+    desde = inicioSemanaISO(hoyISO); hasta = hoyISO;
+    a = actvSumaRango(desde, hasta); periodoLbl = 'Esta semana';
+  } else if(ACTV_TAB==='mes'){
+    desde = hoyISO.slice(0,8)+'01'; hasta = hoyISO;
+    a = actvSumaRango(desde, hasta); periodoLbl = MES_ACTUAL;
   } else {
-    const inicioMes = hoyISO.slice(0,8)+'01';
-    a = actvSumaRango(inicioMes, hoyISO);
-    live = validatedTotal(ME.n);
-    periodoLbl = MES_ACTUAL;
+    desde = primeraFechaActv(); hasta = hoyISO;
+    a = actvSumaRango(desde, hasta);
+    const d = new Date(desde+'T00:00:00');
+    periodoLbl = 'Desde ' + d.toLocaleDateString('es-MX',{day:'numeric',month:'short'});
   }
-  const charlas = a.presencial + a.virtual;
-  const rCC = a.llamadas ? Math.round(a.citas/a.llamadas*100) : 0;
-  const rCA = (live!=null && charlas) ? Math.round(live/charlas*100) : null;
-  const rLC = (live!=null && a.llamadas) ? Math.round(live/a.llamadas*100) : null;
+  const inscripciones = inscripcionesEnRango(desde, hasta);
   const editable = ACTV_TAB==='hoy';
   const field=(key,icoName,lbl,color)=>`<div class="actv-field" ${editable?`onclick="adjActv('${key}',1)"`:''}>
     ${editable?`<button class="actv-minus" onclick="event.stopPropagation();adjActv('${key}',-1)">−</button>`:''}
     <div class="actv-ico-big" style="color:${color}">${ico(icoName,'currentColor',24)}</div>
-    <div class="actv-val-big">${a[key]}</div>
+    <div class="actv-val-big">${a[key]||0}</div>
     <div class="actv-lbl">${lbl}</div>
   </div>`;
   return `<div class="card">
-    <div class="card-lbl">Actividad ${editable?'<span style="color:var(--text3);font-weight:400">· toca para sumar</span>':''}</div>
+    <div class="card-lbl">Mis KPIs ${editable?'<span style="color:var(--text3);font-weight:400">· toca para sumar</span>':''}</div>
     <div class="seg" style="margin-bottom:12px">
       <div class="seg-btn ${ACTV_TAB==='hoy'?'on':''}" onclick="setActvTab('hoy')">Hoy</div>
       <div class="seg-btn ${ACTV_TAB==='semana'?'on':''}" onclick="setActvTab('semana')">Semana</div>
       <div class="seg-btn ${ACTV_TAB==='mes'?'on':''}" onclick="setActvTab('mes')">Mes</div>
+      <div class="seg-btn ${ACTV_TAB==='historico'?'on':''}" onclick="setActvTab('historico')">Histórico</div>
     </div>
     ${ACTV_TAB==='hoy' ? `<div class="actv-date-row">
       <button class="actv-date-nav" onclick="cambiarFechaActv(-1)">‹</button>
@@ -2871,12 +2942,9 @@ function actividadCardHTML(){
       ${field('citas','flag','Citas','var(--morado)')}
       ${field('presencial','people','Presencial','var(--verde)')}
       ${field('virtual','link','Virtual','var(--rosa)')}
+      ${field('apartados','bookmark','Apartados','var(--terracota)')}
     </div>
-    <div class="actv-ratios">
-      <div class="actv-ratio">Llam→Cita<b>${rCC}%</b></div>
-      <div class="actv-ratio">Charla→Cierre<b>${rCA==null?'—':rCA+'%'}</b></div>
-      <div class="actv-ratio">Llam→Cierre<b>${rLC==null?'—':rLC+'%'}</b></div>
-    </div>
+    ${embudoHTML(a, inscripciones)}
   </div>`;
 }
 function cambiarFechaActv(delta){
@@ -3477,7 +3545,7 @@ function renderHome(){
       </div>
       ${actividadCardHTML()}
       ${ownedOfficeSectionHTML()}
-      <div class="small-note">Enero–Julio 2026 ya está cerrado y auditado en el portal de KPIs.<br>Solo lo <b>validado</b> por tu Supervisor y Gerente cuenta para metas e insignias.<br>Tus resultados del mes son privados — nadie más los ve hasta el cierre.</div>
+      <div class="small-note">${rangoCerradoLbl()} 2026 ya está cerrado y auditado en el portal de KPIs.<br>Solo lo <b>validado</b> por tu Supervisor y Gerente cuenta para metas e insignias.<br>Tus resultados del mes son privados — nadie más los ve hasta el cierre.</div>
     `;
     countUp(document.getElementById('heroLiveVal'), live);
     if(newBadges.length){

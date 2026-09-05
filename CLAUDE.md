@@ -181,6 +181,27 @@ La tabla de amigos sigue la misma regla — sólo lista a amigos aceptados.
 > tiene que ser real, esa consulta debe pasar por una función que filtre en el
 > servidor.
 
+## KPIs del representante (`activity_log`)
+
+Cada asesor captura su día en el Home: **llamadas, citas, presencial, virtual y
+apartados**. Una fila por persona y fecha (`unique (profile_id, fecha)`), y se
+guarda con `upsert` en cuanto se toca el `+`.
+
+Con eso se arma el **embudo**: llamadas → citas → charlas (presencial + virtual)
+→ apartados → inscripciones, con el porcentaje que pasa de un peldaño al
+siguiente y el cierre global ("de cada 100 llamadas, N terminan en
+inscripción"). Las inscripciones **no** se capturan a mano: salen de
+`enrollments` validadas en el mismo rango de fechas, para que el embudo compare
+peras con peras.
+
+Pestañas: Hoy (editable, con navegación a días pasados), Semana, Mes e
+Histórico.
+
+> `loadActv()` carga **12 meses**, no sólo el mes en curso. Antes cargaba desde
+> el día 1 del mes actual, así que al cambiar de mes toda la captura anterior
+> desaparecía de la pantalla y la gente reportaba que "no se guardaba" — sí se
+> guardaba, sólo no se volvía a leer.
+
 ## Acceso: bloqueo por inactividad
 
 `profiles.last_seen_at` se sella al entrar, y también por trigger cuando se

@@ -2177,6 +2177,12 @@ function myRankInfo(){
 
 // ── KPIs completos: por categoría (rep / gc / sup) y periodo (acumulado o mes) ──
 const MESES_KEY = ['ene','feb','mar','abr','may','jun','jul','ago'];
+// Rango de meses ya cerrados, en texto ("Enero–Agosto"). Se arma solo desde MESES_KEY
+// para que las etiquetas no se queden viejas cuando entra un mes nuevo.
+function rangoCerradoLbl(){
+  const a = MESES_LBL[MESES_KEY[0]], b = MESES_LBL[MESES_KEY[MESES_KEY.length-1]];
+  return a===b ? a : `${a}–${b}`;
+}
 const MESES_LBL = {total:'Acum.', ene:'Enero', feb:'Febrero', mar:'Marzo', abr:'Abril', may:'Mayo', jun:'Junio', jul:'Julio', ago:'Agosto'};
 const CAT_LBL = {rep:'Representantes', gc:'G. Comerciales', sup:'Supervisores', oficina:'Oficinas', distrital:'Distritales', divisional:'Divisionales', regional:'Regionales', portal:'Portal'};
 function sumField(reps, k){ return reps.reduce((s,r)=>s+(r[k]||0),0); }
@@ -3387,7 +3393,7 @@ function renderRanking(){
         ${cLbl('trophy','var(--gold)', PORTAL_OFICINA_SEL)}
         <div class="hero-stats" style="border-top:none;margin-top:0;padding-top:0">
           <div class="hstat"><div class="hstat-v">${det.total}</div><div class="hstat-l">este mes</div></div>
-          <div class="hstat"><div class="hstat-v">${hist.t||0}</div><div class="hstat-l">Ene–Jul</div></div>
+          <div class="hstat"><div class="hstat-v">${hist.t||0}</div><div class="hstat-l">${rangoCerradoLbl()}</div></div>
           <div class="hstat"><div class="hstat-v">${det.reps.length}</div><div class="hstat-l">representantes</div></div>
         </div>
       </div>
@@ -3413,7 +3419,7 @@ function renderRanking(){
   const periods = ['vivo', 'total', ...MESES_KEY];
   el.innerHTML = `
     ${sTitle('trophy','var(--gold)','Ranking')}
-    <div class="small-note" style="margin:-6px 0 14px">${enVivo ? 'Mes en curso, actualizado en tiempo real.' : 'KPIs completos de la red Enero–Julio 2026 (cerrado).'}</div>
+    <div class="small-note" style="margin:-6px 0 14px">${enVivo ? 'Mes en curso, actualizado en tiempo real.' : `KPIs completos de la red ${rangoCerradoLbl()} 2026 (cerrado).`}</div>
     <div class="period-scroll" style="margin-bottom:10px">${cats.map(c=>`<div class="period-pill cat-pill ${RANK_CAT===c?'on':''}" onclick="setRankCat('${c}')">${CAT_LBL[c]}</div>`).join('')}</div>
     <div class="period-scroll">${periods.map(p=>`<div class="period-pill ${RANK_PERIOD===p?'on':''}" onclick="setRankPeriod('${p}')">${p==='vivo'?'🔴 En vivo':MESES_LBL[p]}</div>`).join('')}</div>
     ${(showOficina && !enVivo) ? `<div class="seg" style="margin-top:8px">

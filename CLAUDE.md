@@ -233,7 +233,7 @@ Los planes son **plazos de pago**, y la comisión cae conforme el plazo se alarg
 
 | | A | B | C | D | E | F |
 |---|---|---|---|---|---|---|
-| | contado | medio contado | 3 meses | 6 meses | 9 meses | 12 meses |
+| | contado | medio contado | contado comercial | 6 meses | 9 meses | 12 meses |
 | MXN | $4,300 | $4,000 | $3,500 | $2,600 | $1,800 | $1,400 |
 
 **Contado paga tres veces lo que paga 12 meses.** Pero el ranking cuenta
@@ -248,9 +248,10 @@ La cifra compara contra **un escalón más corto**, no contra contado: negociar 
 12 meses a contado de golpe no es realista, y un número inflado no convence. El
 botón abre a Mr. Patterson con la pregunta ya escrita y enviada.
 
-> El plan C estaba etiquetado "Contado Comercial" en `PLANES_DEF` cuando en
-> realidad es **3 meses**. Las ventas registradas como C antes de septiembre de
-> 2026 pudieron capturarse con esa idea equivocada.
+> **"Contado Comercial" (plan C) es 30/60/90 días** — equivale a 3 mensualidades.
+> Es el término que la red ya usa, así que se conserva; la pastilla del selector
+> muestra el plazo debajo para quien no lo conozca. No confundirlo con "Contado"
+> (plan A), que sí es pago inmediato.
 
 ## KPIs del representante (`activity_log`)
 

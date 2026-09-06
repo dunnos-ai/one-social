@@ -240,13 +240,24 @@ Los planes son **plazos de pago**, y la comisión cae conforme el plazo se alarg
 inscripciones, todas iguales: quien cierra 3 planes F sube más que quien cierra
 1 plan A y gana $100 menos. En agosto, E y F fueron el 51% de las ventas.
 
-`dineroEnLaMesa()` detecta ese desbalance y le pone número. Dispara sólo si la
-persona lleva **3 ventas o más** y **al menos el 40%** son a 9 o 12 meses — si no,
-callaría a todo el mundo y se volvería ruido que se ignora.
+### La mezcla sana
 
-La cifra compara contra **un escalón más corto**, no contra contado: negociar de
-12 meses a contado de golpe no es realista, y un número inflado no convence. El
-botón abre a Mr. Patterson con la pregunta ya escrita y enviada.
+De cada 10 inscripciones, lo natural cuando el asesor **sí negocia** el plazo:
+
+    2×A · 1×B · 2×C · 2×D · 2×E · 1×F     →  $2,980 por venta en promedio (MXN)
+
+`MEZCLA_SANA` guarda esa proporción y `comisionPromedioSana()` la valúa **con la
+tabla de la zona de cada quien**, así que funciona igual en México y en Colombia
+sin tocar nada.
+
+`dineroEnLaMesa()` compara lo que ganó contra lo que habría ganado con esa mezcla
+a **igual número de ventas**. Dispara con **3 ventas o más** y una desviación de
+**10% o más** — dentro de ese margen no molesta a nadie.
+
+Y funciona en los dos sentidos: si va por encima de la mezcla, **felicita**. Una
+tarjeta que sólo sabe regañar se aprende a ignorar en dos semanas.
+
+El botón abre a Mr. Patterson con la pregunta ya escrita y enviada.
 
 > **"Contado Comercial" (plan C) es 30/60/90 días** — equivale a 3 mensualidades.
 > Es el término que la red ya usa, así que se conserva; la pastilla del selector

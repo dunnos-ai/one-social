@@ -394,6 +394,8 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;overscrol
 .mesa-t{font-family:var(--fd);font-weight:700;font-size:14.5px;color:var(--gold);margin-bottom:6px;}
 .mesa-d{font-size:13px;color:var(--t2);line-height:1.5;}
 .mesa-d b{color:var(--bone);}
+.mesa-bien{background:var(--mint-w);border-color:rgba(14,158,117,.3);}
+.mesa-bien .mesa-t{color:var(--mint);}
 .mesa-btn{width:100%;margin-top:11px;border:none;border-radius:12px;padding:11px;cursor:pointer;
   background:var(--gold);color:#fff;font-family:inherit;font-weight:700;font-size:13px;}
 
@@ -3223,52 +3225,79 @@ function gananciasCardHTML(){
 
 
 // ══════════ DINERO EN LA MESA ══════════
-// Los planes van de mejor a peor comisión según el plazo: contado paga 3x lo que paga
-// 12 meses. Cuando alguien cierra casi todo a plazo largo no es que venda mal — es que
-// no está negociando el plazo. Aquí se le pone número a esa diferencia.
+// Mezcla sana de cada 10 inscripciones, según el negocio. No es un ideal inventado:
+// es la distribución natural cuando el asesor SÍ negocia el plazo.
+const MEZCLA_SANA = {A:2, B:1, C:2, D:2, E:2, F:1};
 const ORDEN_PLANES = ['A','B','C','D','E','F'];
-const PLAZO_PLAN = {A:'contado', B:'medio contado', C:'contado comercial', D:'6 meses', E:'9 meses', F:'12 meses'};
-const PLANES_LARGOS = ['E','F'];   // 9 y 12 meses: los dos que menos pagan
+const PLAZO_PLAN = {A:'contado', B:'medio contado', C:'contado comercial',
+                    D:'6 meses', E:'9 meses', F:'12 meses'};
 
-// Cuánto más habría ganado si cada venta a plazo largo hubiera cerrado UN escalón
-// más corto. Se compara contra un escalón, no contra contado: negociar de 12 meses a
-// contado de golpe no es realista, y una cifra inflada no convence a nadie.
+// Lo que vale una venta promedio si la mezcla es sana. Se calcula con la tabla de
+// la zona de cada quien, así que sirve igual en México y en Colombia.
+function comisionPromedioSana(){
+  let suma = 0, n = 0;
+  for(const [plan, veces] of Object.entries(MEZCLA_SANA)){
+    const c = COMISIONES[plan];
+    if(!c) return null;                 // falta un plan en la tabla: no se inventa nada
+    suma += c.monto * veces; n += veces;
+  }
+  return n ? suma / n : null;
+}
+
+// Compara lo que ganó contra lo que habría ganado con la mezcla sana, a igual
+// número de ventas. Una diferencia grande casi nunca es que venda mal: es que no
+// está negociando el plazo.
 function dineroEnLaMesa(){
   if(!hayTablaDeComisiones()) return null;
+  const prom = comisionPromedioSana();
+  if(prom === null) return null;
+
   const g = gananciasDelMes();
-  const total = g.filas.reduce((s,f)=>s+f.n, 0);
-  if(total < 3) return null;                       // muy pocas ventas para sacar conclusiones
+  const ventas = g.filas.reduce((s,f)=>s+f.n, 0);
+  if(ventas < 3) return null;           // muy pocas para sacar conclusiones
 
-  const largas = g.filas.filter(f=> PLANES_LARGOS.includes(f.plan));
+  const esperado = Math.round(prom * ventas);
+  const real = g.comisiones;            // sólo comisiones: los premios no son mezcla
+  const dif = esperado - real;
+  const desvio = esperado ? Math.abs(dif) / esperado : 0;
+  if(desvio < 0.10) return null;        // dentro de lo normal, no se molesta a nadie
+
+  const largas = g.filas.filter(f=> f.plan==='E' || f.plan==='F')
+    .slice().sort((a,b)=> ORDEN_PLANES.indexOf(a.plan) - ORDEN_PLANES.indexOf(b.plan));
   const nLargas = largas.reduce((s,f)=>s+f.n, 0);
-  if(!nLargas || nLargas/total < 0.4) return null; // sin desbalance, no se molesta a nadie
+  const plazos = [...new Set(largas.map(f=>PLAZO_PLAN[f.plan]))].join(' y ');
 
-  let extra = 0;
-  largas.forEach(f=>{
-    const i = ORDEN_PLANES.indexOf(f.plan);
-    const mejor = COMISIONES[ORDEN_PLANES[i-1]];
-    const actual = COMISIONES[f.plan];
-    if(mejor && actual) extra += (mejor.monto - actual.monto) * f.n;
-  });
-  if(extra <= 0) return null;
-
-  const plazos = [...new Set(largas
-    .slice().sort((a,b)=> ORDEN_PLANES.indexOf(a.plan) - ORDEN_PLANES.indexOf(b.plan))
-    .map(f=>PLAZO_PLAN[f.plan]))].join(' y ');
-  return {nLargas, total, extra, plazos};
+  return {ventas, esperado, real, dif, abajo: dif > 0, nLargas, plazos};
 }
 
 function dineroEnLaMesaHTML(){
   const d = dineroEnLaMesa();
   if(!d) return '';
-  const pregunta = `Este mes cerré ${d.nLargas} de ${d.total} ventas a ${d.plazos}. `
-    + `¿Cómo negocio para que cierren a un plazo más corto o de contado?`;
+
+  if(!d.abajo){
+    // También se reconoce lo contrario: si no, la tarjeta sólo sabría regañar.
+    return `<div class="mesa mesa-bien">
+      <div class="mesa-t">🎯 Vas arriba de la mezcla normal</div>
+      <div class="mesa-d">Con tus <b>${d.ventas}</b> ventas lo esperado eran ${dinero(d.esperado)},
+        y llevas <b>${dinero(d.real)}</b>. Estás negociando bien el plazo.</div>
+    </div>`;
+  }
+
+  const detalle = d.nLargas
+    ? `<b>${d.nLargas} de tus ${d.ventas}</b> ventas cerraron a ${escapeHTML(d.plazos)}. `
+    : '';
+  const pregunta = d.nLargas
+    ? `Este mes cerré ${d.nLargas} de ${d.ventas} ventas a ${d.plazos}. ¿Cómo negocio para que cierren a un plazo más corto?`
+    : `Mis ventas están cerrando a plazos largos y estoy ganando menos. ¿Cómo negocio mejor el plazo de pago?`;
+
   return `<div class="mesa">
-    <div class="mesa-t">💸 Estás dejando dinero en la mesa</div>
-    <div class="mesa-d"><b>${d.nLargas} de tus ${d.total}</b> ventas de este mes cerraron a ${escapeHTML(d.plazos)}.
-      Con un plazo más corto en esas mismas, llevarías <b>${dinero(d.extra)}</b> más.</div>
+    <div class="mesa-t">💸 Dejaste de ganar ${dinero(d.dif)}</div>
+    <div class="mesa-d">${detalle}Con la mezcla normal de la red, esas mismas
+      ${d.ventas} ventas daban <b>${dinero(d.esperado)}</b> y llevas ${dinero(d.real)}.
+      Cuando la diferencia es así de marcada, casi siempre es la negociación —
+      no cuánto vendes.</div>
     <button class="mesa-btn" onclick='preguntarAPatterson(${escapeHTML(JSON.stringify(pregunta))})'>
-      Pídele tips de negociación a Mr. Patterson</button>
+      Enfócate en aprender a negociar · pregúntale a Mr. Patterson</button>
   </div>`;
 }
 

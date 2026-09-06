@@ -156,7 +156,7 @@ Dos cosas distintas que se confunden fácil:
 | **Meses cerrados** (acumulado, E–_mes_) | Con nombre, para toda la red | Ranking (Acum. y por mes), perfiles |
 | **Mes en curso — tarjeta de rivalidad** | Anónimo: "⬡ Rival A/B/C" | Home |
 | **Mes en curso — pestaña 🔴 En vivo** | Con nombre | Ranking |
-| **Rango de carrera** (Recluta→Élite) | Sólo tú y tus amigos | Perfil |
+| **Rango de carrera** (Recluta→Élite) | Sólo tú y tus amigos, **y sólo en representantes** | Perfil |
 
 El mes en curso **no es anónimo en general**. Lo que hace la función
 `ranking_categoria_vivo` es limitar por rol: **si quien consulta es `rep`, sólo
@@ -171,9 +171,14 @@ funciones `red_ranking_oficinas_vivo` y `oficina_detalle_vivo` en Supabase.
 La autorización sigue saliendo de `profile_offices`: cada quien sólo alcanza
 las oficinas que tiene asignadas.
 
-Por eso el rango de carrera del perfil se muestra **sólo a ti y a tus amigos**:
-sale del mes en curso, y la amistad es la excepción explícita a esa privacidad.
-La tabla de amigos sigue la misma regla — sólo lista a amigos aceptados.
+El rango de carrera se muestra **sólo a ti y a tus amigos** porque sale del mes en
+curso, y la amistad es la excepción explícita a esa privacidad. La tabla de amigos
+sigue la misma regla — sólo lista a amigos aceptados.
+
+Y se muestra **sólo en perfiles de representante**. La escalera mide venta
+personal del mes: a un supervisor, gerente comercial, distrital, divisional o
+regional se le mide por su equipo, no por lo que vende él, así que ponerle
+"Recluta" por vender poco en persona sería un insulto además de un dato falso.
 
 > **Ojo:** el anonimato es de interfaz, no de datos. `loadLive()` baja a cada
 > navegador las últimas 2000 inscripciones **con nombre**, sin filtrar por rol.

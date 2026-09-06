@@ -1672,7 +1672,7 @@ function renderProfile(name){
       <div class="pm-info">
         <div class="pm-name">${name}${esCumple ? ' 🎂' : ''}</div>
         <div class="pm-role">${identity.roleLbl}${metaLine?' · '+metaLine:''}</div>
-        ${(isMe || status==='amigos') ? chipDeRangoHTML(liveDeEstaPersona) : ''}
+        ${(identity.role==='rep' && (isMe || status==='amigos')) ? chipDeRangoHTML(liveDeEstaPersona) : ''}
         ${extra.bio ? `<div class="pm-bio">${escapeHTML(extra.bio)}</div>` : ''}
         ${socialLinksHTML ? `<div class="pm-social-row">${socialLinksHTML}</div>` : ''}
       </div>
@@ -2592,10 +2592,12 @@ function currentTierName(liveMonth){
   const tier = RANGOS_DEF.find(r=> liveMonth>=r.min && liveMonth<=r.max) || RANGOS_DEF[RANGOS_DEF.length-1];
   return tier.name;
 }
-// El rango de carrera (Recluta → Élite) sale de las inscripciones del MES EN CURSO,
-// que fuera de tu oficina se muestra anónimo a propósito. Por eso este chip sólo
-// aparece en tu propio perfil y en el de tus amigos: la amistad es la excepción
-// explícita a esa privacidad.
+// El rango de carrera (Recluta → Élite) mide venta personal del MES EN CURSO y es una
+// escalera de REPRESENTANTE. A un supervisor, gerente comercial, distrital, divisional
+// o regional no se le pone: a ellos se les mide por su equipo, no por su venta propia,
+// y encasillarlos en "Recluta" por vender poco personalmente sería un insulto.
+// Además, ese dato fuera de tu oficina se muestra anónimo a propósito — por eso el chip
+// aparece sólo en tu perfil y en el de tus amigos.
 function tierDe(liveMonth){
   return RANGOS_DEF.find(r => liveMonth >= r.min && liveMonth <= r.max) || RANGOS_DEF[RANGOS_DEF.length-1];
 }

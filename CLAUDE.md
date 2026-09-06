@@ -197,9 +197,13 @@ peras con peras.
 Pestañas: Hoy (editable, con navegación a días pasados), Semana, Mes e
 Histórico.
 
-**Embudo del equipo** (`embudoEquipoHTML`, sólo para líderes): el mismo embudo
-sumado sobre `getMyTeam()`, más la lista de **quién registró y quién no**, con
-los que faltan hasta arriba. Esa lista es el punto: un dato que sólo el asesor
+**Embudo del equipo** (`embudoEquipoHTML`, sólo para líderes): vive en la
+pestaña **Equipo → Métricas**. Es el mismo embudo sumado sobre `getMyTeam()`,
+más la lista de **quién registró y quién no**, con los que faltan hasta arriba.
+
+Los pendientes de aprobación quedan **fuera** de las sub-pestañas, arriba de
+todo: son trabajo por hacer con alguien esperando del otro lado, no una vista
+que se pueda esconder detrás de una pestaña. Esa lista es el punto: un dato que sólo el asesor
 captura y sólo él ve se abandona en dos semanas. Lo que sostiene la captura es
 que su líder la vea y pregunte en la junta.
 

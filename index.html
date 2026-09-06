@@ -393,6 +393,7 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;overscrol
 .emb-fill{height:100%;border-radius:7px;transition:width .35s ease;}
 .emb-val{font-family:var(--fd);font-weight:700;font-size:15px;width:36px;text-align:right;flex-shrink:0;}
 .emb-salto{font-family:var(--fm);font-size:10px;color:var(--t3);margin:3px 0 3px 96px;}
+.emb-salto-sube{color:var(--amber);}
 .emb-resumen{margin-top:11px;padding:10px 12px;border-radius:12px;background:var(--mint-w);
   font-size:12.5px;color:var(--t2);text-align:center;}
 .emb-resumen b{font-family:var(--fd);font-size:15px;color:var(--mint);}
@@ -2899,8 +2900,13 @@ function embudoHTML(a, inscripciones, esEquipo){
     const prev = i ? pasos[i-1].v : null;
     const pct = (prev===null) ? null : (prev ? Math.round(p.v/prev*100) : null);
     const ancho = Math.max(3, Math.round(p.v/tope*100));
+    // Un porcentaje mayor a 100 es real: significa que hubo más cierres que apartados
+    // registrados, o sea que algunas ventas no pasaron por el paso anterior. Con flecha
+    // hacia abajo parecería un error de cálculo, así que se marca distinto.
     const salto = (pct===null) ? '' :
-      '<div class="emb-salto">' + (pct===null ? '' : '↓ ' + pct + '%') + '</div>';
+      '<div class="emb-salto' + (pct>100 ? ' emb-salto-sube' : '') + '">'
+      + (pct>100 ? '↑ ' + pct + '% · más que el paso anterior' : '↓ ' + pct + '%')
+      + '</div>';
     return salto
       + '<div class="emb-fila">'
       +   '<div class="emb-lbl">' + p.lbl + '</div>'
@@ -3033,6 +3039,8 @@ function arrancarVigilanciaDeVersion(){
 // motivo para abrirlo diario: dónde se cae el equipo, y a quién le falta registrar hoy.
 let ACTV_EQUIPO = {};        // {profile_id: {fecha: {llamadas,...}}}
 let ACTV_EQ_TAB = 'hoy';     // 'hoy' | 'semana' | 'mes'
+let EQUIPO_TAB = 'equipo';   // sub-pestaña de la vista Equipo: 'equipo' | 'metricas'
+function setEquipoTab(t){ EQUIPO_TAB = t; renderCurrentView(); }
 function setActvEqTab(tab){ ACTV_EQ_TAB = tab; renderCurrentView(); }
 
 async function loadActvEquipo(){
@@ -3746,7 +3754,6 @@ function renderHome(){
       ${FRASE}
       ${pendCount ? `<div class="notif notif-action" onclick="goView('equipo')"><span class="notif-ico">🔔</span><span><b>${pendCount}</b> inscripción${pendCount>1?'es':''} esperando tu aprobación</span></div>` : ''}
       ${(ME.role==='sup'||ME.role==='gc') ? `<div id="homeRivalCardWrap">${rivalCardHTML()}</div>` : ''}
-      ${embudoEquipoHTML()}
       <div id="homeRankOficinasWrap">${redRankingOficinasHTML()}</div>
       ${historicoDistritalHTML()}
       <div class="hero-card">
@@ -4021,9 +4028,9 @@ function renderEquipo(){
       </div>
     </div>`;
   }
-  el.innerHTML = `
-    ${sTitle('people','var(--azul)','Mi Equipo')}
-    ${planStatsRedCardHTML()}
+  // Los pendientes de aprobación quedan FUERA de las pestañas: son trabajo por hacer,
+  // con gente esperando del otro lado, y no deben esconderse detrás de una pestaña.
+  const pendientes = `
     ${ggStage.length ? `
     <div class="card" style="border-color:var(--mint)">
       ${cLbl('bell','var(--mint)',`Esperando tu visto final (${ggStage.length})`)}
@@ -4036,11 +4043,25 @@ function renderEquipo(){
       ${supStage.map(i=>queueItem(i,'approveSup')).join('')}
       ${gerStage.map(i=>queueItem(i,'approveGer')).join('')}
     </div>` : ''}
-    ${ME.role==='general' ? badgeRequestsPanelHTML() : ''}
+    ${ME.role==='general' ? badgeRequestsPanelHTML() : ''}`;
+
+  const listaEquipo = `
+    ${planStatsRedCardHTML()}
     <div class="card">
       <div class="card-lbl">${team.length} personas · ${MES_ACTUAL} (validado)</div>
       ${team.length ? team.map((r,i)=> medalRow(i+1, r.n, r.f, validatedTotal(r.n)+' insc.', false)).join('')
         : `<div class="empty-state">${eIco('people')}Sin representantes asignados</div>`}
+    </div>`;
+
+  el.innerHTML = `
+    ${sTitle('people','var(--azul)','Mi Equipo')}
+    ${pendientes}
+    <div class="profile-tabs">
+      <div class="profile-tab ${EQUIPO_TAB==='equipo'?'on':''}" onclick="setEquipoTab('equipo')">${ico('people','currentColor',14)} Equipo</div>
+      <div class="profile-tab ${EQUIPO_TAB==='metricas'?'on':''}" onclick="setEquipoTab('metricas')">${ico('trending','currentColor',14)} Métricas</div>
+    </div>
+    <div style="margin-top:14px">
+      ${EQUIPO_TAB==='metricas' ? embudoEquipoHTML() : listaEquipo}
     </div>
   `;
 }

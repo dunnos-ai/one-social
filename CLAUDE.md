@@ -42,6 +42,59 @@ seguridad real la da **RLS en Supabase**, no esconder la llave.
 - Mr. Patterson: Edge Function `/functions/v1/mr-patterson`, llamada con el
   `access_token` de la sesión en el header `Authorization`.
 
+## Cómo se vende (regla del negocio, no del código)
+
+**Aquí no se vende por teléfono.** La llamada sirve únicamente para conseguir la cita:
+no se da precio, no se explica el programa, no se cierra. La venta ocurre en la **cita**,
+que puede ser por Zoom o presencial en el instituto.
+
+Importa para el código porque el prompt de Mr. Patterson tiene que distinguir las dos
+etapas: una respuesta de cita dada durante una llamada tira la venta. Si algún día se
+agregan KPIs, embudos o textos nuevos, la misma separación aplica — llamada y cita no
+son la misma conversación.
+
+## Mr. Patterson (la parte de IA)
+
+El código de la función vive en `supabase/functions/mr-patterson/index.ts`, pero **la
+que corre es la que está desplegada en Supabase** — editar el archivo no cambia nada
+hasta que se vuelve a desplegar. El `ANTHROPIC_API_KEY` es un secreto de la función,
+no está en el repo ni en el navegador.
+
+Cómo está armada la llamada al modelo, y por qué:
+
+| Decisión | Por qué |
+|---|---|
+| `model: claude-opus-5` | Mejor diagnóstico. Con caché sale más barato que el modelo anterior sin caché. |
+| `thinking: {type:'adaptive'}` | El modelo decide cuánto razonar según lo difícil que esté la objeción. |
+| `max_tokens` 3000 / 8000 | **Los tokens de razonamiento salen de este mismo tope.** Antes estaba en 350 y 1 de cada 5 respuestas se cortaba a media frase. Si se vuelve a bajar, se rompe otra vez. |
+| `output_config.effort` `low` / `high` | `low` en el diagnóstico normal (el representante está a media llamada real, cada segundo cuenta); `high` sólo al cerrar un roleplay o en modo COACH, que son reflexivos y nadie está esperando. |
+| El prompt va en **dos** bloques `system` | El primero (prompt base + banco de objeciones) es idéntico para toda la red y lleva `cache_control` — se cachea una vez y lo reusan todos. El nombre de la persona va en un segundo bloque **sin cachear**: si fuera parte del prefijo, cada quien tendría su propia entrada de caché y no serviría de nada. |
+
+Dos trampas que ya costaron caro:
+
+1. **Con `thinking` activo, `content[0]` ya no es el texto** — el primer bloque es el
+   razonamiento. Hay que filtrar por `type === 'text'`. Leer `content[0].text` hace que
+   Patterson conteste "No pude generar una respuesta" siempre.
+2. **Opus 5 escribe más largo por default.** El prompt tiene instrucciones explícitas de
+   brevedad; si se quitan, las respuestas se alargan solas. `effort` no las acorta.
+3. **El prompt entiende llamada y cita como etapas distintas** (ver la sección de arriba).
+   La sección `== CÓMO SE VENDE AQUÍ ==` va antes que todo lo demás a propósito: si se
+   mueve al final o se borra, Patterson vuelve a dar precios por teléfono.
+
+Del lado de la app (`index.html`):
+
+- `mdChat()` renderiza el markdown que el modelo escribe solo (negritas, cursivas,
+  código, viñetas, numerales, citas `>` y las etiquetas `CAUSA PROBABLE:` y compañía).
+  **Siempre `escapeHTML` primero y el markdown después**, nunca al revés.
+- Las citas `>` se pintan con barra dorada porque son la frase exacta que el
+  representante le va a decir a su prospecto — es lo que más se lee a media llamada.
+- Los numerales se pintan línea por línea, sin `<ul>`/`<ol>`: Patterson separa los 11
+  puntos de la evaluación de un roleplay con renglones en blanco, y una lista de verdad
+  se reiniciaría en 1 cada vez.
+- `ROLEPLAY` y `COACH` son **botones** (`pintarModosPatterson`). Estuvieron dos años
+  como palabras que había que adivinar y escribir: en 385 conversaciones, ROLEPLAY lo
+  usó 1 persona y COACH ninguna.
+
 Roles (`ME.role`): `rep` (asesor), `sup` (supervisor), `gc` (gerente comercial),
 `general`.
 

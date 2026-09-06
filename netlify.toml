@@ -21,3 +21,32 @@
   for = "/mrpatterson.gif"
   [headers.values]
     Cache-Control = "public, max-age=604800"
+
+# El repo se publica entero (publish = "."), así que TODO archivo que viva aquí
+# queda leíble por URL. Estas rutas son código y documentación interna —el prompt
+# de Mr. Patterson, los nombres de tablas y funciones, las migraciones— y no
+# tienen por qué servirse. Siguen en el repo y en el historial; solo dejan de
+# estar en la web. force = true es obligatorio: sin eso el archivo estático gana.
+[[redirects]]
+  from = "/supabase/*"
+  to = "/index.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/sql/*"
+  to = "/index.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/CLAUDE.md"
+  to = "/index.html"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/DESPLIEGUE.md"
+  to = "/index.html"
+  status = 404
+  force = true

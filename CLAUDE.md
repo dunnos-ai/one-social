@@ -298,6 +298,38 @@ La lectura del equipo la permite la política `activity_select_own_or_team`
 > desaparecía de la pantalla y la gente reportaba que "no se guardaba" — sí se
 > guardaba, sólo no se volvía a leer.
 
+## Cómo se modela dónde está cada quien
+
+Dos campos distintos, y confundirlos descuadra rankings y embudos:
+
+- **`profiles.office_id`** — su **base**, la oficina donde está físicamente.
+- **`profile_offices`** — las oficinas que **cubre**. Un gerente comercial o un
+  distrital puede llevar oficinas fuera de su base, como gerente externo: Adriana
+  Ávila tiene base en Juárez Plutarco y cubre además Guadalajara y Aguascalientes;
+  Daniel Ponce, distrital, cubre cuatro.
+
+**Un supervisor tiene UNA sola oficina.** Es regla del negocio, no del código. Si
+un supervisor se cambia de oficina, se actualiza su `office_id` y su renglón en
+`profile_offices` — no se le acumulan las dos. Su historial no se pierde: cada
+venta guarda su propia oficina y mes en `monthly_plan_totals_closed`.
+
+Dos consultas que deben dar **cero** siempre:
+
+```sql
+-- representantes con supervisor de otra oficina
+select count(*) from profiles r join profiles s on s.id = r.supervisor_id
+where r.role='rep' and r.office_id is distinct from s.office_id;
+
+-- supervisores con más de una oficina
+select count(*) from (select p.id from profiles p
+  join profile_offices po on po.profile_id = p.id
+  where p.role='sup' group by p.id having count(*) > 1) x;
+```
+
+Cuando un supervisor deja una oficina, **sus representantes no se van con él**:
+se les quita el `supervisor_id` y quedan con el GC y el distrital que ya cubrían
+esa oficina. Si no, sus ventas le siguen sumando al equipo equivocado.
+
 ## Acceso: bloqueo por inactividad
 
 `profiles.last_seen_at` se sella al entrar, y también por trigger cuando se

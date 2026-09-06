@@ -875,6 +875,19 @@ let LIDER_IDS = {}; // nombre -> profile id (para que Distritales/Divisionales/R
 let PROFILE_NAME_BY_ID = {}; // profile id -> nombre (para amistades/muro, que guardan ids)
 let PERFILES_EXTRA = {}; // nombre -> {bio, edad, foto} (bio/edad/foto_url viven en profiles)
 
+// La foto de un perfil se baja sólo cuando alguien lo abre, y se queda en memoria.
+const FOTO_CACHE = {};
+async function cargarFoto(nombre){
+  if(FOTO_CACHE[nombre] !== undefined) return;
+  FOTO_CACHE[nombre] = '';                       // marca "ya se pidió", evita pedirla dos veces
+  const id = profileIdByName(nombre);
+  if(!id) return;
+  const { data, error } = await sb.from('profiles').select('foto_url').eq('id', id).single();
+  if(error || !data || !data.foto_url) return;
+  FOTO_CACHE[nombre] = data.foto_url;
+  if(PERFILES_EXTRA[nombre]) PERFILES_EXTRA[nombre].foto = data.foto_url;
+  if(PROFILE_TARGET===nombre && CURRENT_VIEW==='perfil') renderProfile(nombre);
+}
 function profileIdByName(name){
   const r = SEED_REPS.find(x=>x.n===name); if(r) return r.id;
   const s = SEED_SUP.find(x=>x.n===name); if(s) return s.id;
@@ -889,7 +902,11 @@ async function loadDirectoryFromSupabase(){
   const officeName = {}; offices.forEach(o=> officeName[o.id]=o.name);
   OFFICE_ID_BY_NAME = {}; offices.forEach(o=> OFFICE_ID_BY_NAME[o.name]=o.id);
 
-  const { data: profiles, error: errP } = await sb.from('profiles').select('*');
+  // OJO: aquí NO se pide foto_url. Las fotos se guardan en base64 dentro de la propia
+  // tabla y pesan 1.4 MB entre todas — el 96% de esta consulta— pero sólo se ven al abrir
+  // un perfil. Pedirlas aquí obligaba a cada persona a bajarlas TODAS en cada arranque.
+  // Se cargan una por una en cargarFoto(), cuando de verdad se necesitan.
+  const { data: profiles, error: errP } = await sb.from('profiles').select('id,auth_user_id,nombre,office_id,role,supervisor_id,gc_id,distrital_id,divisional_id,regional_id,base_total_ej,t3_count,t5_count,t10_count,bio,edad,username,active,manual_block,auto_deactivated,created_at,instagram,tiktok,facebook,threads,fecha_nacimiento,titulo_especial,ve_toda_la_red,last_seen_at');
   if(errP){ console.error('profiles', errP); return false; }
 
   const { data: monthly, error: errM } = await sb.from('monthly_totals_closed').select('profile_id,month,total');
@@ -938,7 +955,8 @@ async function loadDirectoryFromSupabase(){
     const f = officeName[p.office_id] || '';
     OFFICE_BY_PROFILE[p.id] = p.office_id;
     PROFILE_NAME_BY_ID[p.id] = p.nombre;
-    PERFILES_EXTRA[p.nombre] = {bio:p.bio||'', fechaNac:p.fecha_nacimiento||'', foto:p.foto_url||'', instagram:p.instagram||'', tiktok:p.tiktok||'', facebook:p.facebook||'', threads:p.threads||''};
+    // foto: no viene en esta consulta (ver arriba); la rellena cargarFoto() al abrir el perfil.
+    PERFILES_EXTRA[p.nombre] = {bio:p.bio||'', fechaNac:p.fecha_nacimiento||'', foto:FOTO_CACHE[p.nombre]||'', instagram:p.instagram||'', tiktok:p.tiktok||'', facebook:p.facebook||'', threads:p.threads||''};
     if(p.role==='rep'){
       const mm = monthlyByProfile[p.id] || {};
       reps.push({
@@ -1487,6 +1505,7 @@ async function handlePhotoUpload(input, name){
     ctx.drawImage(img, (size-w)/2, (size-h)/2, w, h);
     const dataUrl = canvas.toDataURL('image/jpeg', 0.62);
     const { data, error } = await sb.from('profiles').update({ foto_url: dataUrl }).eq('id', profileIdByName(name)).select('id');
+  FOTO_CACHE[name] = dataUrl;
     if(error) throw error;
     if(!data || !data.length) throw new Error('No se pudo guardar — la cuenta no tiene permiso para actualizar este perfil.');
     PERFILES_EXTRA[name] = {...(PERFILES_EXTRA[name]||{}), foto:dataUrl};
@@ -1610,6 +1629,7 @@ function renderProfile(name){
     el.innerHTML = `${sTitle('user','var(--morado)','Perfil')}<div class="card"><div class="empty-state">${eIco('user')}Toca a alguien en Ranking, Equipo o Amigos para ver su perfil.</div></div>`;
     return;
   }
+  cargarFoto(name);          // sin await: la tarjeta se pinta ya y la foto entra cuando llega
   const identity = primaryIdentity(name);
   const repData = findRepData(name);
   const isMe = name===ME.n;

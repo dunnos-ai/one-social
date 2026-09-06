@@ -202,9 +202,12 @@ más lo que la persona capture en `extras_ingreso` (ruletas, premios, bonos).
 `metas_mes` guarda la meta de dinero que cada quien se pone, y la barra dice
 cuánto falta.
 
-Dos cosas que la app todavía no distingue:
-- **A-MSI** existe en la tabla de comisiones ($4,200) pero no como plan en la app:
-  una venta capturada como `A` se estima a $4,300. La diferencia es de $100.
+Dos cosas sobre la estimación:
+- **A-MSI no se captura como plan, y así se queda por decisión del negocio.** Toda
+  venta de contado a meses sin intereses entra como `A` y se estima a $4,300, aunque
+  la tabla le asigne $4,200. Son $100 de más por venta en ese caso. El renglón
+  `A-MSI` se conserva en `comisiones` sólo como referencia de la tabla real —
+  **no agregar A-MSI al selector de planes**.
 - Los pagos a meses sin intereses se cobran proporcionalmente, así que el dinero
   llega repartido. La tarjeta lo advierte.
 

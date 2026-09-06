@@ -227,6 +227,31 @@ Dos cosas sobre la estimación:
 - Los pagos a meses sin intereses se cobran proporcionalmente, así que el dinero
   llega repartido. La tarjeta lo advierte.
 
+## Planes y "dinero en la mesa"
+
+Los planes son **plazos de pago**, y la comisión cae conforme el plazo se alarga:
+
+| | A | B | C | D | E | F |
+|---|---|---|---|---|---|---|
+| | contado | medio contado | 3 meses | 6 meses | 9 meses | 12 meses |
+| MXN | $4,300 | $4,000 | $3,500 | $2,600 | $1,800 | $1,400 |
+
+**Contado paga tres veces lo que paga 12 meses.** Pero el ranking cuenta
+inscripciones, todas iguales: quien cierra 3 planes F sube más que quien cierra
+1 plan A y gana $100 menos. En agosto, E y F fueron el 51% de las ventas.
+
+`dineroEnLaMesa()` detecta ese desbalance y le pone número. Dispara sólo si la
+persona lleva **3 ventas o más** y **al menos el 40%** son a 9 o 12 meses — si no,
+callaría a todo el mundo y se volvería ruido que se ignora.
+
+La cifra compara contra **un escalón más corto**, no contra contado: negociar de
+12 meses a contado de golpe no es realista, y un número inflado no convence. El
+botón abre a Mr. Patterson con la pregunta ya escrita y enviada.
+
+> El plan C estaba etiquetado "Contado Comercial" en `PLANES_DEF` cuando en
+> realidad es **3 meses**. Las ventas registradas como C antes de septiembre de
+> 2026 pudieron capturarse con esa idea equivocada.
+
 ## KPIs del representante (`activity_log`)
 
 Cada asesor captura su día en el Home: **llamadas, citas, presencial, virtual y

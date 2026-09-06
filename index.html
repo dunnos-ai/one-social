@@ -388,6 +388,15 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;overscrol
 .gan-extra-btns{display:flex;gap:8px;}
 .gan-extra-btns .wall-post-btn{flex:1;}
 
+/* ══ DINERO EN LA MESA ══ */
+.mesa{margin-top:14px;padding:14px;border-radius:14px;background:rgba(201,124,5,.09);
+  border:1px solid rgba(201,124,5,.3);}
+.mesa-t{font-family:var(--fd);font-weight:700;font-size:14.5px;color:var(--gold);margin-bottom:6px;}
+.mesa-d{font-size:13px;color:var(--t2);line-height:1.5;}
+.mesa-d b{color:var(--bone);}
+.mesa-btn{width:100%;margin-top:11px;border:none;border-radius:12px;padding:11px;cursor:pointer;
+  background:var(--gold);color:#fff;font-family:inherit;font-weight:700;font-size:13px;}
+
 /* ══ AVISO DE VERSIÓN NUEVA ══ */
 .aviso-version{position:fixed;left:12px;right:12px;bottom:calc(78px + var(--safe-b));z-index:9999;
   display:flex;align-items:center;gap:12px;padding:13px 14px;border-radius:16px;
@@ -3191,6 +3200,7 @@ function gananciasCardHTML(){
     ${meta}
     <div class="gan-seccion">Por plan</div>
     ${desglose}
+    ${dineroEnLaMesaHTML()}
     <div class="gan-seccion">
       Premios y ruletas
       ${EXTRA_ABIERTO ? '' : `<button class="gan-add" onclick="toggleExtra(true)">+ Agregar</button>`}
@@ -3208,6 +3218,69 @@ function gananciasCardHTML(){
     ${listaExtras || (EXTRA_ABIERTO ? '' : `<div class="small-note" style="text-align:center;padding:6px 0">Cuando ganes un premio o una ruleta, agrégalo aquí.</div>`)}
     <div class="small-note" style="margin-top:12px">Es una estimación con la tabla de comisiones de tu zona. Los pagos a meses sin intereses se cobran de forma proporcional, así que pueden llegar repartidos.</div>
   </div>`;
+}
+
+
+// ══════════ DINERO EN LA MESA ══════════
+// Los planes van de mejor a peor comisión según el plazo: contado paga 3x lo que paga
+// 12 meses. Cuando alguien cierra casi todo a plazo largo no es que venda mal — es que
+// no está negociando el plazo. Aquí se le pone número a esa diferencia.
+const ORDEN_PLANES = ['A','B','C','D','E','F'];
+const PLAZO_PLAN = {A:'contado', B:'medio contado', C:'3 meses', D:'6 meses', E:'9 meses', F:'12 meses'};
+const PLANES_LARGOS = ['E','F'];   // 9 y 12 meses: los dos que menos pagan
+
+// Cuánto más habría ganado si cada venta a plazo largo hubiera cerrado UN escalón
+// más corto. Se compara contra un escalón, no contra contado: negociar de 12 meses a
+// contado de golpe no es realista, y una cifra inflada no convence a nadie.
+function dineroEnLaMesa(){
+  if(!hayTablaDeComisiones()) return null;
+  const g = gananciasDelMes();
+  const total = g.filas.reduce((s,f)=>s+f.n, 0);
+  if(total < 3) return null;                       // muy pocas ventas para sacar conclusiones
+
+  const largas = g.filas.filter(f=> PLANES_LARGOS.includes(f.plan));
+  const nLargas = largas.reduce((s,f)=>s+f.n, 0);
+  if(!nLargas || nLargas/total < 0.4) return null; // sin desbalance, no se molesta a nadie
+
+  let extra = 0;
+  largas.forEach(f=>{
+    const i = ORDEN_PLANES.indexOf(f.plan);
+    const mejor = COMISIONES[ORDEN_PLANES[i-1]];
+    const actual = COMISIONES[f.plan];
+    if(mejor && actual) extra += (mejor.monto - actual.monto) * f.n;
+  });
+  if(extra <= 0) return null;
+
+  const plazos = [...new Set(largas
+    .slice().sort((a,b)=> ORDEN_PLANES.indexOf(a.plan) - ORDEN_PLANES.indexOf(b.plan))
+    .map(f=>PLAZO_PLAN[f.plan]))].join(' y ');
+  return {nLargas, total, extra, plazos};
+}
+
+function dineroEnLaMesaHTML(){
+  const d = dineroEnLaMesa();
+  if(!d) return '';
+  const pregunta = `Este mes cerré ${d.nLargas} de ${d.total} ventas a ${d.plazos}. `
+    + `¿Cómo negocio para que cierren a un plazo más corto o de contado?`;
+  return `<div class="mesa">
+    <div class="mesa-t">💸 Estás dejando dinero en la mesa</div>
+    <div class="mesa-d"><b>${d.nLargas} de tus ${d.total}</b> ventas de este mes cerraron a ${escapeHTML(d.plazos)}.
+      Con un plazo más corto en esas mismas, llevarías <b>${dinero(d.extra)}</b> más.</div>
+    <button class="mesa-btn" onclick='preguntarAPatterson(${escapeHTML(JSON.stringify(pregunta))})'>
+      Pídele tips de negociación a Mr. Patterson</button>
+  </div>`;
+}
+
+// Abre a Mr. Patterson con la pregunta ya escrita y enviada, para que la respuesta
+// esté ahí cuando la persona llegue.
+function preguntarAPatterson(texto){
+  goView('patterson');
+  setTimeout(()=>{
+    const inp = document.getElementById('pattersonInput');
+    if(!inp) return;
+    inp.value = texto;
+    enviarMensajePatterson();
+  }, 150);
 }
 
 // ══════════ AVISO DE VERSIÓN NUEVA ══════════
@@ -4297,7 +4370,7 @@ function renderEquipo(){
 const PLANES_DEF = [
   {id:'A', nombre:'Contado'},
   {id:'B', nombre:'1/2 Contado'},
-  {id:'C', nombre:'Contado Comercial'},
+  {id:'C', nombre:'3 meses'},
   {id:'D', nombre:'6 meses'},
   {id:'E', nombre:'9 meses'},
   {id:'F', nombre:'12 meses'}

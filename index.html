@@ -360,6 +360,16 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;overscrol
 .edit-social-field{display:flex;align-items:center;gap:8px;border-radius:14px;border:1px solid var(--line);background:var(--s2);padding:0 12px;min-width:0;}
 .edit-social-field svg{flex-shrink:0;}
 .edit-social-field input{border:none;background:transparent;flex:1;min-width:0;width:auto;}
+/* ══ AVISO DE VERSIÓN NUEVA ══ */
+.aviso-version{position:fixed;left:12px;right:12px;bottom:calc(78px + var(--safe-b));z-index:9999;
+  display:flex;align-items:center;gap:12px;padding:13px 14px;border-radius:16px;
+  background:var(--mint);color:var(--on-mint);box-shadow:0 10px 30px var(--sh-l);
+  font-size:13.5px;font-weight:600;animation:avisoSube .3s ease;}
+.aviso-version span{flex:1;}
+.aviso-version button{border:none;border-radius:11px;padding:9px 16px;cursor:pointer;
+  background:var(--on-mint);color:var(--mint);font-family:inherit;font-weight:700;font-size:13px;}
+@keyframes avisoSube{from{transform:translateY(14px);opacity:0}to{transform:none;opacity:1}}
+
 /* ══ QUIÉN REGISTRÓ (equipo) ══ */
 .eq-registro{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);}
 .eq-registro-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;
@@ -2967,6 +2977,57 @@ function actividadCardHTML(){
   </div>`;
 }
 
+
+// ══════════ AVISO DE VERSIÓN NUEVA ══════════
+// Netlify sirve el index con no-cache, así que quien CIERRA y vuelve a abrir ya recibe
+// la versión nueva. El problema es quien nunca la cierra: en iPhone la app instalada
+// queda suspendida días y sigue corriendo el código viejo.
+// Aquí se compara la marca del index.html en el servidor contra la que había al cargar.
+// No hay archivo de versión que recordar actualizar: la marca la pone Netlify sola.
+let VERSION_AL_CARGAR = null;
+let AVISO_VERSION_PUESTO = false;
+
+async function marcaDelServidor(){
+  try{
+    const r = await fetch('index.html?v=' + Date.now(), { method:'HEAD', cache:'no-store' });
+    if(!r.ok) return null;
+    // last-modified es más estable entre nodos del CDN que el etag.
+    return r.headers.get('last-modified') || r.headers.get('etag');
+  }catch(e){ return null; }   // sin señal / offline: no molestamos
+}
+
+async function revisarVersion(){
+  if(AVISO_VERSION_PUESTO) return;
+  const marca = await marcaDelServidor();
+  if(!marca) return;
+  if(VERSION_AL_CARGAR === null){ VERSION_AL_CARGAR = marca; return; }
+  if(marca !== VERSION_AL_CARGAR) mostrarAvisoVersion();
+}
+
+function mostrarAvisoVersion(){
+  if(AVISO_VERSION_PUESTO || document.getElementById('avisoVersion')) return;
+  AVISO_VERSION_PUESTO = true;
+  const el = document.createElement('div');
+  el.id = 'avisoVersion';
+  el.className = 'aviso-version';
+  el.innerHTML = '<span>Hay una versión nueva de ONE.</span>'
+    + '<button onclick="recargarVersion()">Actualizar</button>';
+  document.body.appendChild(el);
+}
+
+function recargarVersion(){
+  // El ?v= evita que un proxy intermedio devuelva la copia vieja.
+  location.replace(location.pathname + '?v=' + Date.now());
+}
+
+function arrancarVigilanciaDeVersion(){
+  revisarVersion();                                  // toma la marca inicial
+  setInterval(revisarVersion, 5 * 60 * 1000);        // cada 5 minutos
+  document.addEventListener('visibilitychange', ()=>{ // y al volver a la app
+    if(document.visibilityState === 'visible') revisarVersion();
+  });
+}
+
 // ══════════ EMBUDO DEL EQUIPO (para líderes) ══════════
 // Un dato que sólo el asesor captura y sólo él ve, se abandona. Esto le da al líder
 // motivo para abrirlo diario: dónde se cae el equipo, y a quién le falta registrar hoy.
@@ -4217,6 +4278,7 @@ window.addEventListener('resize', ajustarScrollLogoLogin);
   }
   ME = perfil;
   await boot();
+  arrancarVigilanciaDeVersion();
 })();
 </script>
 <script>

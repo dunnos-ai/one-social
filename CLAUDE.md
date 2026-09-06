@@ -284,6 +284,29 @@ Netlify está conectado a este repo. No hay build: sirve los archivos tal cual.
 **Editar aquí + merge a `main` = actualización en vivo.**
 Los pasos de la conexión inicial están en `DESPLIEGUE.md`.
 
+## Cómo llega una versión nueva a la gente
+
+No hay service worker y Netlify sirve el `index.html` con `no-cache`, así que
+**quien cierra la app y la vuelve a abrir ya recibe la versión nueva**. No hay
+que borrar cachés ni reinstalar nada.
+
+El problema es quien nunca la cierra: en iPhone, la app instalada en la pantalla
+de inicio queda suspendida días y sigue corriendo el código viejo. Para eso está
+`arrancarVigilanciaDeVersion()`: compara el `last-modified` del `index.html` en
+el servidor contra el que había al cargar — cada 5 minutos y **al volver a la
+app** — y si cambió muestra un aviso fijo con botón *Actualizar*.
+
+No hay archivo de versión que recordar actualizar: la marca la pone Netlify sola
+en cada deploy.
+
+> El aviso sólo aparece en dispositivos que ya cargaron una versión **que
+> incluye este código**. La primera vez, quien tenga la app abierta desde antes
+> tiene que cerrarla y reabrirla una vez. De ahí en adelante ya se avisa solo.
+
+No se recarga automáticamente a propósito: alguien puede estar a media captura
+de una inscripción o escribiendo en el muro, y una recarga sin avisar le borra
+lo que llevaba.
+
 ## Convenciones
 
 - Mensajes de commit en español, estilo `feat:`, `fix:`, `chore:`.

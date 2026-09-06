@@ -360,6 +360,34 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;overscrol
 .edit-social-field{display:flex;align-items:center;gap:8px;border-radius:14px;border:1px solid var(--line);background:var(--s2);padding:0 12px;min-width:0;}
 .edit-social-field svg{flex-shrink:0;}
 .edit-social-field input{border:none;background:transparent;flex:1;min-width:0;width:auto;}
+/* ══ MIS GANANCIAS ══ */
+.gan-total{font-family:var(--fd);font-weight:800;font-size:38px;letter-spacing:-.03em;color:var(--mint);line-height:1.05;}
+.gan-total-l{font-size:12px;color:var(--t3);margin-bottom:14px;}
+.gan-meta{background:var(--s2);border-radius:14px;padding:12px 14px;cursor:pointer;margin-bottom:6px;}
+.gan-meta-vacia{text-align:center;font-size:13px;color:var(--t2);padding:14px;}
+.gan-meta-top{display:flex;justify-content:space-between;font-size:13px;margin-bottom:7px;}
+.gan-meta-pct{font-family:var(--fd);font-weight:700;color:var(--mint);}
+.gan-barra{height:9px;border-radius:5px;background:var(--s3);overflow:hidden;}
+.gan-barra-fill{height:100%;border-radius:5px;background:var(--mint);transition:width .4s ease;}
+.gan-meta-falta{font-size:12px;color:var(--t2);margin-top:7px;}
+.gan-meta-edit input{width:100%;border-radius:12px;border:1px solid var(--line);background:var(--s2);
+  color:var(--bone);font-size:14px;padding:11px;outline:none;margin-bottom:8px;}
+.gan-meta-edit{margin-bottom:8px;}
+.gan-seccion{display:flex;justify-content:space-between;align-items:center;font-family:var(--fm);
+  font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);
+  margin:16px 0 6px;padding-top:11px;border-top:1px solid var(--line);}
+.gan-fila{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:13px;}
+.gan-plan{font-weight:600;min-width:62px;}
+.gan-n{flex:1;font-family:var(--fm);font-size:11px;color:var(--t3);}
+.gan-sub{font-family:var(--fd);font-weight:700;font-size:14px;}
+.gan-x{border:none;background:none;color:var(--t3);font-size:19px;cursor:pointer;padding:0 2px;line-height:1;}
+.gan-add,.gan-cancel{border:none;background:var(--s2);color:var(--t2);border-radius:9px;
+  padding:5px 11px;font-family:inherit;font-size:11.5px;font-weight:600;cursor:pointer;letter-spacing:0;text-transform:none;}
+.gan-extra-form input{width:100%;border-radius:12px;border:1px solid var(--line);background:var(--s2);
+  color:var(--bone);font-size:13.5px;padding:11px;outline:none;margin-bottom:8px;}
+.gan-extra-btns{display:flex;gap:8px;}
+.gan-extra-btns .wall-post-btn{flex:1;}
+
 /* ══ AVISO DE VERSIÓN NUEVA ══ */
 .aviso-version{position:fixed;left:12px;right:12px;bottom:calc(78px + var(--safe-b));z-index:9999;
   display:flex;align-items:center;gap:12px;padding:13px 14px;border-radius:16px;
@@ -3006,6 +3034,178 @@ function actividadCardHTML(){
 }
 
 
+
+// ══════════ MIS GANANCIAS ══════════
+// Las comisiones NO son iguales en toda la red: la tabla está por zona y por fecha de
+// vigencia. Si la oficina de la persona no tiene zona con tabla cargada, NO se muestra
+// dinero — un número equivocado sobre lo que alguien va a cobrar es peor que ninguno.
+let COMISIONES = {};        // plan -> {monto, moneda}
+let MONEDA = 'MXN';
+let MI_META = 0;            // meta de dinero del mes en curso
+let EXTRAS = [];            // premios, ruletas y demás, capturados por la persona
+
+function mesActualISO(){ return todayISO().slice(0,7); }
+function dinero(n){
+  return new Intl.NumberFormat('es-MX', {style:'currency', currency:MONEDA, maximumFractionDigits:0}).format(n||0);
+}
+
+async function loadDinero(){
+  COMISIONES = {}; MI_META = 0; EXTRAS = [];
+  if(!ME || !ME.data || !ME.data.id) return;
+
+  const { data: ofi } = await sb.from('offices').select('zona').eq('id', OFFICE_BY_PROFILE[ME.data.id] || '').maybeSingle();
+  const zona = ofi && ofi.zona;
+  if(zona){
+    const { data: com } = await sb.from('comisiones').select('plan,monto,moneda,vigente_desde')
+      .eq('zona', zona).lte('vigente_desde', todayISO()).order('vigente_desde', {ascending:true});
+    // Si hubiera varias vigencias, la última gana: el order ascendente deja arriba la vieja
+    // y la sobrescribe la nueva.
+    (com||[]).forEach(c=>{ COMISIONES[c.plan] = {monto:Number(c.monto), moneda:c.moneda}; MONEDA = c.moneda; });
+  }
+
+  const mes = mesActualISO();
+  const { data: meta } = await sb.from('metas_mes').select('monto')
+    .eq('profile_id', ME.data.id).eq('mes', mes).maybeSingle();
+  MI_META = meta ? Number(meta.monto) : 0;
+
+  const { data: ex } = await sb.from('extras_ingreso').select('id,fecha,concepto,monto')
+    .eq('profile_id', ME.data.id).gte('fecha', mes+'-01').order('fecha', {ascending:false});
+  EXTRAS = ex || [];
+}
+
+function hayTablaDeComisiones(){ return Object.keys(COMISIONES).length > 0; }
+
+// Desglose del mes: cuántas de cada plan y cuánto suma cada renglón.
+function gananciasDelMes(){
+  const desde = new Date(todayISO()+'T00:00:00'); desde.setDate(1);
+  const ini = desde.getTime();
+  const porPlan = {};
+  INSC.filter(i=> i.nombre===ME.n && i.ts>=ini
+      && (i.estado===ESTADOS.VALIDADA || i.estado===ESTADOS.GG_OK))
+    .forEach(i=>{
+      const p = i.plan || '—';
+      porPlan[p] = (porPlan[p]||0) + (i.cantidad||1);
+    });
+  let comisiones = 0;
+  const filas = Object.entries(porPlan).map(([plan, n])=>{
+    const c = COMISIONES[plan];
+    const sub = c ? c.monto * n : 0;
+    comisiones += sub;
+    return {plan, n, unitario: c ? c.monto : null, sub};
+  }).sort((a,b)=> b.sub - a.sub);
+  const extras = EXTRAS.reduce((s,e)=> s + Number(e.monto), 0);
+  return {filas, comisiones, extras, total: comisiones + extras};
+}
+
+
+let META_EDITANDO = false;
+function toggleMeta(v){ META_EDITANDO = v; renderCurrentView(); }
+async function guardarMeta(){
+  const val = Math.max(0, Math.round(Number(document.getElementById('metaInput').value) || 0));
+  const { error } = await sb.from('metas_mes')
+    .upsert({profile_id: ME.data.id, mes: mesActualISO(), monto: val, updated_at: new Date().toISOString()},
+            {onConflict:'profile_id,mes'});
+  if(error){ showToast('❌ No se pudo guardar tu meta'); return; }
+  MI_META = val; META_EDITANDO = false;
+  showToast(val ? '🎯 Meta guardada' : 'Meta quitada');
+  renderCurrentView();
+}
+let EXTRA_ABIERTO = false;
+function toggleExtra(v){ EXTRA_ABIERTO = v; renderCurrentView(); }
+async function agregarExtra(){
+  const concepto = (document.getElementById('extraConcepto').value||'').trim();
+  const monto = Math.round(Number(document.getElementById('extraMonto').value) || 0);
+  const err = document.getElementById('extraError');
+  if(!concepto){ err.textContent='Escribe de qué fue.'; return; }
+  if(monto<=0){ err.textContent='Escribe cuánto ganaste.'; return; }
+  const { data, error } = await sb.from('extras_ingreso')
+    .insert({profile_id: ME.data.id, fecha: todayISO(), concepto: concepto.slice(0,60), monto})
+    .select('id,fecha,concepto,monto').single();
+  if(error){ err.textContent='No se pudo guardar: '+error.message; return; }
+  EXTRAS = [data, ...EXTRAS]; EXTRA_ABIERTO = false;
+  showToast('✅ Agregado');
+  renderCurrentView();
+}
+async function borrarExtra(id){
+  const { error } = await sb.from('extras_ingreso').delete().eq('id', id);
+  if(error){ showToast('❌ No se pudo borrar'); return; }
+  EXTRAS = EXTRAS.filter(e=>e.id!==id);
+  renderCurrentView();
+}
+
+function gananciasCardHTML(){
+  if(!hayTablaDeComisiones()){
+    // Sin tabla para su zona no se inventa un número: se dice por qué.
+    return `<div class="card">
+      ${cLbl('trophy','var(--gold)','Mis ganancias')}
+      <div class="empty-state">${eIco('inbox')}Todavía no está cargada la tabla de comisiones de tu oficina.</div>
+    </div>`;
+  }
+  const g = gananciasDelMes();
+  const falta = Math.max(0, MI_META - g.total);
+  const pct = MI_META ? Math.min(100, Math.round(g.total/MI_META*100)) : 0;
+
+  const desglose = g.filas.length ? g.filas.map(f=>`
+    <div class="gan-fila">
+      <div class="gan-plan">Plan ${escapeHTML(f.plan)}</div>
+      <div class="gan-n">${f.n} × ${f.unitario!=null ? dinero(f.unitario) : '—'}</div>
+      <div class="gan-sub">${f.unitario!=null ? dinero(f.sub) : 'sin tabla'}</div>
+    </div>`).join('')
+    : `<div class="small-note" style="text-align:center;padding:6px 0">Sin ventas validadas este mes todavía.</div>`;
+
+  const listaExtras = EXTRAS.map(e=>`
+    <div class="gan-fila">
+      <div class="gan-plan" style="flex:1">${escapeHTML(e.concepto)}</div>
+      <div class="gan-sub">${dinero(e.monto)}</div>
+      <button class="gan-x" onclick="borrarExtra('${e.id}')" aria-label="Quitar">×</button>
+    </div>`).join('');
+
+  const meta = META_EDITANDO ? `
+    <div class="gan-meta-edit">
+      <input id="metaInput" type="number" inputmode="numeric" min="0" step="500"
+             placeholder="¿Cuánto quieres ganar este mes?" value="${MI_META||''}">
+      <button class="wall-post-btn" onclick="guardarMeta()">Guardar</button>
+      <button class="gan-cancel" onclick="toggleMeta(false)">Cancelar</button>
+    </div>`
+    : (MI_META ? `
+    <div class="gan-meta" onclick="toggleMeta(true)">
+      <div class="gan-meta-top">
+        <span>Tu meta: <b>${dinero(MI_META)}</b></span>
+        <span class="gan-meta-pct">${pct}%</span>
+      </div>
+      <div class="gan-barra"><div class="gan-barra-fill" style="width:${pct}%"></div></div>
+      <div class="gan-meta-falta">${falta>0
+        ? 'Te faltan <b>'+dinero(falta)+'</b> para llegar'
+        : '🎉 Ya rebasaste tu meta'}</div>
+    </div>`
+    : `<div class="gan-meta gan-meta-vacia" onclick="toggleMeta(true)">🎯 Ponte una meta para este mes</div>`);
+
+  return `<div class="card">
+    ${cLbl('trophy','var(--gold)','Mis ganancias · '+MES_ACTUAL)}
+    <div class="gan-total">${dinero(g.total)}</div>
+    <div class="gan-total-l">estimado con lo validado hasta hoy</div>
+    ${meta}
+    <div class="gan-seccion">Por plan</div>
+    ${desglose}
+    <div class="gan-seccion">
+      Premios y ruletas
+      ${EXTRA_ABIERTO ? '' : `<button class="gan-add" onclick="toggleExtra(true)">+ Agregar</button>`}
+    </div>
+    ${EXTRA_ABIERTO ? `
+      <div class="gan-extra-form">
+        <input id="extraConcepto" maxlength="60" placeholder="De qué fue (ruleta, premio, bono…)">
+        <input id="extraMonto" type="number" inputmode="numeric" min="1" placeholder="Cuánto">
+        <div id="extraError" class="login-error" style="text-align:left"></div>
+        <div class="gan-extra-btns">
+          <button class="wall-post-btn" onclick="agregarExtra()">Agregar</button>
+          <button class="gan-cancel" onclick="toggleExtra(false)">Cancelar</button>
+        </div>
+      </div>` : ''}
+    ${listaExtras || (EXTRA_ABIERTO ? '' : `<div class="small-note" style="text-align:center;padding:6px 0">Cuando ganes un premio o una ruleta, agrégalo aquí.</div>`)}
+    <div class="small-note" style="margin-top:12px">Es una estimación con la tabla de comisiones de tu zona. Los pagos a meses sin intereses se cobran de forma proporcional, así que pueden llegar repartidos.</div>
+  </div>`;
+}
+
 // ══════════ AVISO DE VERSIÓN NUEVA ══════════
 // Netlify sirve el index con no-cache, así que quien CIERRA y vuelve a abrir ya recibe
 // la versión nueva. El problema es quien nunca la cierra: en iPhone la app instalada
@@ -3750,6 +3950,7 @@ function renderHome(){
           }).join('')}
         </div>
       </div>
+      ${gananciasCardHTML()}
       ${actividadCardHTML()}
       ${ownedOfficeSectionHTML()}
       <div class="small-note">${rangoCerradoLbl()} 2026 ya está cerrado y auditado en el portal de KPIs.<br>Solo lo <b>validado</b> por tu Supervisor y Gerente cuenta para metas e insignias.<br>Tus resultados del mes son privados — nadie más los ve hasta el cierre.</div>
@@ -4248,6 +4449,7 @@ async function boot(){
   await loadLive();
   await loadActv();
   await loadActvEquipo();
+  await loadDinero();
   await loadSocial();
   await updateLoginStreak();
   await loadMiRangoVivo();
@@ -4268,6 +4470,7 @@ async function boot(){
     await loadLive();
     await loadActv();
     await loadActvEquipo();
+    await loadDinero();
     await loadSocial();
     await loadMiRangoVivo();
   await loadOficinaPlanVivo();

@@ -186,6 +186,28 @@ regional se le mide por su equipo, no por lo que vende él, así que ponerle
 > tiene que ser real, esa consulta debe pasar por una función que filtre en el
 > servidor.
 
+## Ganancias, metas y premios
+
+`comisiones (zona, plan, monto, moneda, precio_lista, porcentaje, vigente_desde)`.
+**Las comisiones NO son iguales en toda la red**: la tabla cargada es de Zona
+Norte, enero 2026. `offices.zona` dice a qué tabla pertenece cada oficina.
+
+> Si la oficina de la persona **no tiene zona con tabla**, la tarjeta no muestra
+> dinero: dice que falta cargarla. Un número equivocado sobre lo que alguien va a
+> cobrar es peor que ninguno. Hoy quedan sin zona **Medellín** (otro país y otra
+> moneda), **Guadalajara** y **Aguascalientes**.
+
+La estimación del mes sale de las inscripciones validadas por plan × su comisión,
+más lo que la persona capture en `extras_ingreso` (ruletas, premios, bonos).
+`metas_mes` guarda la meta de dinero que cada quien se pone, y la barra dice
+cuánto falta.
+
+Dos cosas que la app todavía no distingue:
+- **A-MSI** existe en la tabla de comisiones ($4,200) pero no como plan en la app:
+  una venta capturada como `A` se estima a $4,300. La diferencia es de $100.
+- Los pagos a meses sin intereses se cobran proporcionalmente, así que el dinero
+  llega repartido. La tarjeta lo advierte.
+
 ## KPIs del representante (`activity_log`)
 
 Cada asesor captura su día en el Home: **llamadas, citas, presencial, virtual y

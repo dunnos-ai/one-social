@@ -422,6 +422,29 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;overscrol
 .eqr-d{font-family:var(--fm);font-size:10.5px;color:var(--t3);margin-top:1px;}
 .eqr-falta .eqr-n{color:var(--t2);}
 .eqr-falta .eqr-d{color:var(--coral);}
+.eqr-body{flex:1;min-width:0;}
+.eqr-flecha{flex-shrink:0;color:var(--t3);font-size:11px;}
+.eqr-on .eqr-flecha{color:var(--gold);}
+
+/* Detalle desplegable de una persona del equipo */
+.eqd{margin:2px 0 12px;padding:12px 13px;border-radius:14px;
+  background:var(--s2);border:1px solid var(--line);}
+.eqd-lbl{font-family:var(--fm);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--t3);margin-bottom:8px;}
+.eqd-nums{display:flex;flex-direction:column;gap:5px;}
+.eqd-num{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:var(--t2);}
+.eqd-num b{font-family:var(--fd);font-size:14px;color:var(--bone);}
+.eqd-num-t{padding-top:6px;margin-top:2px;border-top:1px solid var(--line);}
+.eqd-num-t b{color:var(--mint);font-size:16px;}
+.eqd-meta{margin-top:12px;}
+.eqd-meta-h{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px;color:var(--t2);}
+.eqd-meta-h b{font-family:var(--fd);font-size:13.5px;color:var(--bone);}
+.eqd-barra{height:7px;border-radius:4px;background:var(--line);overflow:hidden;margin:6px 0 5px;}
+.eqd-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--mint),var(--gold));}
+.eqd-meta-p{font-family:var(--fm);font-size:10.5px;color:var(--t3);}
+.eqd-nota{margin-top:12px;font-size:11.5px;color:var(--t3);line-height:1.45;}
+.eqd-pie{margin-top:12px;padding-top:10px;border-top:1px solid var(--line);
+  font-size:12px;font-weight:600;color:var(--gold);cursor:pointer;}
 
 /* ══ EMBUDO DE KPIs ══ */
 .embudo{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);}
@@ -930,6 +953,7 @@ let GERENCIA_GENERAL = []; // Gerente(s) General(es): {id, n, f:'Toda la red', o
 let LIDERAZGO_PERSONAL = []; // Distritales/Divisionales/Regionales que venden directo: {id, n, f, personal:{ene..jul}}
 let OFFICE_BY_PROFILE = {}; // profile.id -> office_id (para registrar inscripciones)
 let OFFICE_ID_BY_NAME = {}; // nombre de oficina -> office_id
+let OFFICES_BY_ID = {};     // office_id -> {name, zona} — la zona decide qué tabla de comisiones aplica
 let LIDER_IDS = {}; // nombre -> profile id (para que Distritales/Divisionales/Regionales puedan crear cuenta)
 let PROFILE_NAME_BY_ID = {}; // profile id -> nombre (para amistades/muro, que guardan ids)
 let PERFILES_EXTRA = {}; // nombre -> {bio, edad, foto} (bio/edad/foto_url viven en profiles)
@@ -956,10 +980,11 @@ function profileIdByName(name){
 }
 
 async function loadDirectoryFromSupabase(){
-  const { data: offices, error: errO } = await sb.from('offices').select('id,name');
+  const { data: offices, error: errO } = await sb.from('offices').select('id,name,zona');
   if(errO){ console.error('offices', errO); return false; }
   const officeName = {}; offices.forEach(o=> officeName[o.id]=o.name);
   OFFICE_ID_BY_NAME = {}; offices.forEach(o=> OFFICE_ID_BY_NAME[o.name]=o.id);
+  OFFICES_BY_ID = {}; offices.forEach(o=> OFFICES_BY_ID[o.id] = {name:o.name, zona:o.zona});
 
   // OJO: aquí NO se pide foto_url. Las fotos se guardan en base64 dentro de la propia
   // tabla y pesan 1.4 MB entre todas — el 96% de esta consulta— pero sólo se ven al abrir
@@ -3120,10 +3145,14 @@ function mesActualISO(){ return todayISO().slice(0,7); }
 // El formato sigue a la moneda de la zona: en México "$21,100" y en Colombia
 // "$1.395.630", con punto de miles, que es como se lee allá.
 const LOCALE_POR_MONEDA = {MXN:'es-MX', COP:'es-CO', USD:'en-US'};
-function dinero(n){
-  const loc = LOCALE_POR_MONEDA[MONEDA] || 'es-MX';
-  return new Intl.NumberFormat(loc, {style:'currency', currency:MONEDA, maximumFractionDigits:0}).format(n||0);
+// Un gerente externo puede tener gente en México y en Medellín a la vez, así que el
+// formato no puede depender de una sola moneda global: dineroEn() recibe la suya.
+function dineroEn(n, moneda){
+  const m = moneda || 'MXN';
+  const loc = LOCALE_POR_MONEDA[m] || 'es-MX';
+  return new Intl.NumberFormat(loc, {style:'currency', currency:m, maximumFractionDigits:0}).format(n||0);
 }
+function dinero(n){ return dineroEn(n, MONEDA); }
 
 async function loadDinero(){
   COMISIONES = {}; MI_META = 0; EXTRAS = [];
@@ -3428,6 +3457,73 @@ function arrancarVigilanciaDeVersion(){
 // motivo para abrirlo diario: dónde se cae el equipo, y a quién le falta registrar hoy.
 let ACTV_EQUIPO = {};        // {profile_id: {fecha: {llamadas,...}}}
 let ACTV_EQ_TAB = 'hoy';     // 'hoy' | 'semana' | 'mes'
+let METAS_EQUIPO = {};       // {profile_id: monto de su meta del mes}
+let EXTRAS_EQUIPO = {};      // {profile_id: suma de premios y ruletas del mes}
+let COMIS_POR_ZONA = {};     // {zona: {plan: {monto, moneda}}}
+let EQ_ABIERTO = null;       // profile_id de la persona cuyo detalle está desplegado
+
+function toggleEqDetalle(pid){
+  EQ_ABIERTO = (EQ_ABIERTO === pid) ? null : pid;
+  renderCurrentView();
+}
+
+// Un líder ya puede ver las ventas de su gente y la tabla de comisiones de su zona es
+// la misma para todos — o sea que estos números ya los podía sacar a mano. Esto sólo
+// se los deja hechos. Las políticas de metas_mes y extras_ingreso ya permiten leer lo
+// del equipo (own_or_team), así que no hace falta tocar la base.
+async function loadEquipoDinero(){
+  METAS_EQUIPO = {}; EXTRAS_EQUIPO = {}; COMIS_POR_ZONA = {};
+  if(!ME || !isLeaderRole()) return;
+  const ids = [...new Set(getMyTeam().map(m=>m.id).filter(Boolean))];
+  if(!ids.length) return;
+  const mes = mesActualISO();
+
+  const { data: metas } = await sb.from('metas_mes').select('profile_id,monto')
+    .in('profile_id', ids).eq('mes', mes);
+  (metas||[]).forEach(m=> METAS_EQUIPO[m.profile_id] = Number(m.monto));
+
+  const { data: ex } = await sb.from('extras_ingreso').select('profile_id,monto')
+    .in('profile_id', ids).gte('fecha', mes+'-01');
+  (ex||[]).forEach(e=> EXTRAS_EQUIPO[e.profile_id] = (EXTRAS_EQUIPO[e.profile_id]||0) + Number(e.monto));
+
+  // El equipo de un gerente externo puede abarcar dos zonas (México y Medellín cobran
+  // en monedas distintas), así que se traen todas las que toque su gente, no sólo la suya.
+  const zonas = [...new Set(ids.map(id=>{
+    const o = (OFFICES_BY_ID||{})[OFFICE_BY_PROFILE[id]];
+    return o && o.zona;
+  }).filter(Boolean))];
+  if(!zonas.length) return;
+  const { data: com } = await sb.from('comisiones').select('zona,plan,monto,moneda,vigente_desde')
+    .in('zona', zonas).lte('vigente_desde', todayISO()).order('vigente_desde', {ascending:true});
+  (com||[]).forEach(c=>{
+    (COMIS_POR_ZONA[c.zona] = COMIS_POR_ZONA[c.zona] || {})[c.plan] = {monto:Number(c.monto), moneda:c.moneda};
+  });
+}
+
+function zonaDe(profileId){
+  const o = (OFFICES_BY_ID||{})[OFFICE_BY_PROFILE[profileId]];
+  return o && o.zona;
+}
+
+// Igual que gananciasDelMes() pero para cualquier persona del equipo, con la tabla de
+// comisiones de SU zona — no la del líder que está mirando.
+function gananciasDe(nombre, profileId){
+  const tabla = COMIS_POR_ZONA[zonaDe(profileId)] || {};
+  const ini = new Date(mesActualISO()+'-01T00:00:00').getTime();
+  const porPlan = {};
+  INSC.filter(i=> i.nombre===nombre && i.ts>=ini
+      && (i.estado===ESTADOS.VALIDADA || i.estado===ESTADOS.GG_OK))
+    .forEach(i=>{ const p = i.plan || '—'; porPlan[p] = (porPlan[p]||0) + (i.cantidad||1); });
+  let comisiones = 0, moneda = null;
+  Object.entries(porPlan).forEach(([plan, n])=>{
+    const c = tabla[plan];
+    if(c){ comisiones += c.monto * n; moneda = c.moneda; }
+  });
+  const extras = EXTRAS_EQUIPO[profileId] || 0;
+  const algunaMoneda = moneda || (Object.values(tabla)[0] || {}).moneda || 'MXN';
+  return {comisiones, extras, total: comisiones + extras, moneda: algunaMoneda,
+          hayTabla: Object.keys(tabla).length > 0};
+}
 let EQUIPO_TAB = 'equipo';   // sub-pestaña de la vista Equipo: 'equipo' | 'metricas'
 function setEquipoTab(t){ EQUIPO_TAB = t; renderCurrentView(); }
 function setActvEqTab(tab){ ACTV_EQ_TAB = tab; renderCurrentView(); }
@@ -3480,7 +3576,7 @@ function embudoEquipoHTML(){
         && i.ts <= new Date(hasta+'T23:59:59').getTime()
         && (i.estado===ESTADOS.VALIDADA || i.estado===ESTADOS.GG_OK))
       .reduce((s,i)=>s+i.cantidad,0);
-    return {n:m.n, a, ins, registro: a.dias>0};
+    return {n:m.n, id:m.id, a, ins, registro: a.dias>0};
   });
 
   const inscripciones = filas.reduce((s,f)=>s+f.ins,0);
@@ -3494,12 +3590,15 @@ function embudoEquipoHTML(){
     const detalle = f.registro
       ? f.a.llamadas+' llam · '+f.a.citas+' citas · '+f.ins+' insc'
       : (ACTV_EQ_TAB==='hoy' ? 'Sin registrar hoy' : 'Sin registro en el periodo');
-    return '<div class="eqr'+(f.registro?'':' eqr-falta')+'" onclick=\'openProfile('
-      + escapeHTML(JSON.stringify(f.n)) + ')\'>'
+    const abierto = EQ_ABIERTO === f.id;
+    return '<div class="eqr'+(f.registro?'':' eqr-falta')+(abierto?' eqr-on':'')+'" onclick="toggleEqDetalle('
+      + escapeHTML(JSON.stringify(f.id)) + ')">'
       + '<div class="eqr-punto"></div>'
       + '<div class="eqr-body"><div class="eqr-n">' + escapeHTML(f.n) + '</div>'
       + '<div class="eqr-d">' + escapeHTML(detalle) + '</div></div>'
-      + '</div>';
+      + '<div class="eqr-flecha">' + (abierto ? '▾' : '▸') + '</div>'
+      + '</div>'
+      + (abierto ? detalleDeLaPersonaHTML(f, desde, hasta, periodoLbl) : '');
   }).join('');
 
   return `<div class="card">
@@ -3519,6 +3618,53 @@ function embudoEquipoHTML(){
       ${lista}
     </div>
   </div>`;
+}
+
+// Lo que ve un líder al desplegar a una persona de su equipo: su embudo con los
+// porcentajes de conversión, su meta de dinero y lo que lleva ganado.
+// OJO con los periodos: el embudo sigue la pestaña elegida (hoy/semana/mes) porque es
+// actividad; el dinero SIEMPRE es del mes, porque así se paga. Van etiquetados para que
+// nadie lea "hoy" sobre una cifra mensual.
+function detalleDeLaPersonaHTML(f, desde, hasta, periodoLbl){
+  const g = gananciasDe(f.n, f.id);
+  const meta = METAS_EQUIPO[f.id] || 0;
+  // Un gerente externo puede tener gente de México y de Medellín en la misma lista, y
+  // "$1.263.865" junto a "$16,900" se lee como una barbaridad si no se dice cuál es cuál.
+  // La moneda se marca sólo cuando es distinta a la de quien está mirando.
+  const otraMoneda = g.moneda !== MONEDA;
+  const money = n => dineroEn(n, g.moneda) + (otraMoneda ? ' ' + g.moneda : '');
+  const insMes = INSC.filter(i=> i.nombre===f.n
+      && i.ts >= new Date(mesActualISO()+'-01T00:00:00').getTime()
+      && (i.estado===ESTADOS.VALIDADA || i.estado===ESTADOS.GG_OK))
+    .reduce((s,i)=>s+i.cantidad,0);
+
+  const metaBloque = !g.hayTabla
+    ? '<div class="eqd-nota">Sin tabla de comisiones para su zona — no se puede calcular.</div>'
+    : (meta > 0
+        ? (()=>{
+            const pct = Math.min(100, Math.round(g.total/meta*100));
+            const falta = Math.max(0, meta - g.total);
+            return '<div class="eqd-meta">'
+              + '<div class="eqd-meta-h"><span>Meta del mes</span><b>' + money(meta) + '</b></div>'
+              + '<div class="eqd-barra"><div class="eqd-fill" style="width:' + pct + '%"></div></div>'
+              + '<div class="eqd-meta-p">' + pct + '% · '
+              + (falta > 0 ? 'le faltan ' + money(falta) : '¡ya la alcanzó!')
+              + '</div></div>';
+          })()
+        : '<div class="eqd-nota">Todavía no se ha puesto meta de dinero este mes.</div>');
+
+  return '<div class="eqd">'
+    + '<div class="eqd-lbl">Embudo · ' + escapeHTML(periodoLbl) + '</div>'
+    + embudoHTML(f.a, f.ins, false)
+    + '<div class="eqd-lbl" style="margin-top:14px">Dinero · ' + escapeHTML(MES_ACTUAL) + '</div>'
+    + '<div class="eqd-nums">'
+    +   '<div class="eqd-num"><span>Comisiones</span><b>' + money(g.comisiones) + '</b></div>'
+    +   '<div class="eqd-num"><span>Premios y ruletas</span><b>' + money(g.extras) + '</b></div>'
+    +   '<div class="eqd-num eqd-num-t"><span>Total · ' + insMes + ' insc. validadas</span><b>' + money(g.total) + '</b></div>'
+    + '</div>'
+    + metaBloque
+    + '<div class="eqd-pie" onclick=\'event.stopPropagation();openProfile(' + escapeHTML(JSON.stringify(f.n)) + ')\'>Ver su perfil →</div>'
+    + '</div>';
 }
 
 function cambiarFechaActv(delta){
@@ -4672,6 +4818,7 @@ async function boot(){
   await loadLive();
   await loadActv();
   await loadActvEquipo();
+  await loadEquipoDinero();
   await loadDinero();
   await loadSocial();
   await updateLoginStreak();
@@ -4693,6 +4840,7 @@ async function boot(){
     await loadLive();
     await loadActv();
     await loadActvEquipo();
+    await loadEquipoDinero();
     await loadDinero();
     await loadSocial();
     await loadMiRangoVivo();

@@ -189,13 +189,19 @@ regional se le mide por su equipo, no por lo que vende él, así que ponerle
 ## Ganancias, metas y premios
 
 `comisiones (zona, plan, monto, moneda, precio_lista, porcentaje, vigente_desde)`.
-**Las comisiones NO son iguales en toda la red**: la tabla cargada es de Zona
-Norte, enero 2026. `offices.zona` dice a qué tabla pertenece cada oficina.
+`offices.zona` dice a qué tabla pertenece cada oficina.
 
-> Si la oficina de la persona **no tiene zona con tabla**, la tarjeta no muestra
-> dinero: dice que falta cargarla. Un número equivocado sobre lo que alguien va a
-> cobrar es peor que ninguno. Hoy quedan sin zona **Medellín** (otro país y otra
-> moneda), **Guadalajara** y **Aguascalientes**.
+Hoy hay una sola zona, **`mexico`**, con la tabla de enero 2026, y aplica a las
+**17 oficinas mexicanas** (241 personas). El documento original venía titulado
+"Zona Norte", pero la tabla es la misma para todas — Guadalajara y Aguascalientes
+incluidas. La zona se llama `mexico` justamente para que el nombre no engañe.
+
+**Medellín queda aparte y sin tabla**: cobra en pesos colombianos y todavía no se
+carga la suya. Sus 29 personas ven un aviso de que falta cargarla, no un número.
+
+> Regla: si la oficina de la persona no tiene zona con tabla, **no se muestra
+> dinero**. Un número equivocado sobre lo que alguien va a cobrar es peor que
+> ninguno.
 
 La estimación del mes sale de las inscripciones validadas por plan × su comisión,
 más lo que la persona capture en `extras_ingreso` (ruletas, premios, bonos).

@@ -197,6 +197,15 @@ peras con peras.
 Pestañas: Hoy (editable, con navegación a días pasados), Semana, Mes e
 Histórico.
 
+**Embudo del equipo** (`embudoEquipoHTML`, sólo para líderes): el mismo embudo
+sumado sobre `getMyTeam()`, más la lista de **quién registró y quién no**, con
+los que faltan hasta arriba. Esa lista es el punto: un dato que sólo el asesor
+captura y sólo él ve se abandona en dos semanas. Lo que sostiene la captura es
+que su líder la vea y pregunte en la junta.
+
+La lectura del equipo la permite la política `activity_select_own_or_team`
+(`is_in_my_hierarchy`), así que cada líder alcanza sólo a su gente.
+
 > `loadActv()` carga **12 meses**, no sólo el mes en curso. Antes cargaba desde
 > el día 1 del mes actual, así que al cambiar de mes toda la captura anterior
 > desaparecía de la pantalla y la gente reportaba que "no se guardaba" — sí se

@@ -360,6 +360,20 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;overscrol
 .edit-social-field{display:flex;align-items:center;gap:8px;border-radius:14px;border:1px solid var(--line);background:var(--s2);padding:0 12px;min-width:0;}
 .edit-social-field svg{flex-shrink:0;}
 .edit-social-field input{border:none;background:transparent;flex:1;min-width:0;width:auto;}
+/* ══ QUIÉN REGISTRÓ (equipo) ══ */
+.eq-registro{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);}
+.eq-registro-h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;
+  font-family:var(--fm);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--t3);}
+.eq-registro-h b{font-family:var(--fd);font-size:14px;letter-spacing:0;color:var(--mint);}
+.eq-registro-h b.bajo{color:var(--coral);}
+.eqr{display:flex;align-items:center;gap:10px;padding:7px 0;cursor:pointer;}
+.eqr-punto{width:8px;height:8px;border-radius:50%;background:var(--mint);flex-shrink:0;}
+.eqr-falta .eqr-punto{background:var(--line);border:1.5px solid var(--coral);}
+.eqr-n{font-size:13.5px;font-weight:600;}
+.eqr-d{font-family:var(--fm);font-size:10.5px;color:var(--t3);margin-top:1px;}
+.eqr-falta .eqr-n{color:var(--t2);}
+.eqr-falta .eqr-d{color:var(--coral);}
+
 /* ══ EMBUDO DE KPIs ══ */
 .embudo{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);}
 .emb-fila{display:flex;align-items:center;gap:10px;}
@@ -2861,7 +2875,7 @@ function setActvTab(tab){ ACTV_TAB = tab; renderCurrentView(); }
 // ── Embudo: de la llamada hasta la inscripción ──────────────────────────────
 // Cada peldaño muestra cuántos llegaron y qué porcentaje pasó del peldaño anterior.
 // Ahí se ve dónde se está cayendo la venta, que es lo que un asesor puede corregir.
-function embudoHTML(a, inscripciones){
+function embudoHTML(a, inscripciones, esEquipo){
   const charlas = (a.presencial||0) + (a.virtual||0);
   const pasos = [
     {lbl:'Llamadas',      v:a.llamadas||0,   c:'var(--azul)'},
@@ -2888,9 +2902,14 @@ function embudoHTML(a, inscripciones){
   const llam = a.llamadas||0, ins = inscripciones||0;
   const global = llam ? (ins/llam*100) : null;
   const resumen = global===null
-    ? 'Registra tus llamadas para ver tu porcentaje de cierre.'
+    ? (esEquipo
+        ? (ins > 0
+            ? 'Tu equipo cerró <b>' + ins + '</b> sin registrar una sola llamada. Sin eso no sabes qué les funcionó.'
+            : 'Nadie de tu equipo ha registrado actividad en este periodo.')
+        : 'Registra tus llamadas para ver tu porcentaje de cierre.')
     : (ins===0
-        ? 'Todavía sin cierres en este periodo. Llevas ' + llam + ' llamada' + (llam===1?'':'s') + '.'
+        ? (esEquipo ? 'Todavía sin cierres. El equipo lleva ' + llam + ' llamada' + (llam===1?'':'s') + '.'
+                    : 'Todavía sin cierres en este periodo. Llevas ' + llam + ' llamada' + (llam===1?'':'s') + '.')
         : 'De cada 100 llamadas, <b>' + (global>=1 ? Math.round(global) : global.toFixed(1))
           + '</b> terminan en inscripción.');
   return '<div class="embudo">' + filas + '</div>'
@@ -2947,6 +2966,103 @@ function actividadCardHTML(){
     ${embudoHTML(a, inscripciones)}
   </div>`;
 }
+
+// ══════════ EMBUDO DEL EQUIPO (para líderes) ══════════
+// Un dato que sólo el asesor captura y sólo él ve, se abandona. Esto le da al líder
+// motivo para abrirlo diario: dónde se cae el equipo, y a quién le falta registrar hoy.
+let ACTV_EQUIPO = {};        // {profile_id: {fecha: {llamadas,...}}}
+let ACTV_EQ_TAB = 'hoy';     // 'hoy' | 'semana' | 'mes'
+function setActvEqTab(tab){ ACTV_EQ_TAB = tab; renderCurrentView(); }
+
+async function loadActvEquipo(){
+  ACTV_EQUIPO = {};
+  if(!ME || !isLeaderRole()) return;
+  const ids = [...new Set(getMyTeam().map(m=>m.id).filter(Boolean))];
+  if(!ids.length) return;
+  const desde = new Date(); desde.setDate(desde.getDate()-45);
+  const desdeISO = desde.getFullYear()+'-'+String(desde.getMonth()+1).padStart(2,'0')+'-'+String(desde.getDate()).padStart(2,'0');
+  const { data, error } = await sb.from('activity_log')
+    .select('profile_id,fecha,llamadas,citas,presencial,virtual,apartados')
+    .in('profile_id', ids).gte('fecha', desdeISO);
+  if(error){ console.error('activity_log equipo', error); return; }
+  (data||[]).forEach(r=>{
+    (ACTV_EQUIPO[r.profile_id] = ACTV_EQUIPO[r.profile_id] || {})[r.fecha] = r;
+  });
+}
+
+function actvEqSuma(profileId, desdeISO, hastaISO){
+  const out = {llamadas:0,citas:0,presencial:0,virtual:0,apartados:0,dias:0};
+  Object.entries(ACTV_EQUIPO[profileId] || {}).forEach(([fecha, v])=>{
+    if(fecha>=desdeISO && fecha<=hastaISO){
+      out.llamadas+=v.llamadas||0; out.citas+=v.citas||0; out.presencial+=v.presencial||0;
+      out.virtual+=v.virtual||0;   out.apartados+=v.apartados||0;
+      if((v.llamadas||0)+(v.citas||0)+(v.presencial||0)+(v.virtual||0)+(v.apartados||0) > 0) out.dias++;
+    }
+  });
+  return out;
+}
+
+function embudoEquipoHTML(){
+  if(!isLeaderRole()) return '';
+  const team = getMyTeam().filter(m=>m.id && m.n);
+  if(!team.length) return '';
+
+  const hoyISO = todayISO();
+  let desde, hasta = hoyISO, periodoLbl;
+  if(ACTV_EQ_TAB==='hoy'){ desde = hoyISO; periodoLbl = 'Hoy'; }
+  else if(ACTV_EQ_TAB==='semana'){ desde = inicioSemanaISO(hoyISO); periodoLbl = 'Esta semana'; }
+  else { desde = hoyISO.slice(0,8)+'01'; periodoLbl = MES_ACTUAL; }
+
+  const total = {llamadas:0,citas:0,presencial:0,virtual:0,apartados:0};
+  const filas = team.map(m=>{
+    const a = actvEqSuma(m.id, desde, hasta);
+    ['llamadas','citas','presencial','virtual','apartados'].forEach(k=> total[k]+=a[k]);
+    const ins = INSC.filter(i=> i.nombre===m.n
+        && i.ts >= new Date(desde+'T00:00:00').getTime()
+        && i.ts <= new Date(hasta+'T23:59:59').getTime()
+        && (i.estado===ESTADOS.VALIDADA || i.estado===ESTADOS.GG_OK))
+      .reduce((s,i)=>s+i.cantidad,0);
+    return {n:m.n, a, ins, registro: a.dias>0};
+  });
+
+  const inscripciones = filas.reduce((s,f)=>s+f.ins,0);
+  const conRegistro = filas.filter(f=>f.registro).length;
+  const pctRegistro = Math.round(conRegistro/filas.length*100);
+
+  // Primero los que NO registraron: esa es la lista que sirve en la junta.
+  filas.sort((a,b)=> (a.registro-b.registro) || (b.a.llamadas-a.a.llamadas) || a.n.localeCompare(b.n));
+
+  const lista = filas.map(f=>{
+    const detalle = f.registro
+      ? f.a.llamadas+' llam · '+f.a.citas+' citas · '+f.ins+' insc'
+      : (ACTV_EQ_TAB==='hoy' ? 'Sin registrar hoy' : 'Sin registro en el periodo');
+    return '<div class="eqr'+(f.registro?'':' eqr-falta')+'" onclick=\'openProfile('
+      + escapeHTML(JSON.stringify(f.n)) + ')\'>'
+      + '<div class="eqr-punto"></div>'
+      + '<div class="eqr-body"><div class="eqr-n">' + escapeHTML(f.n) + '</div>'
+      + '<div class="eqr-d">' + escapeHTML(detalle) + '</div></div>'
+      + '</div>';
+  }).join('');
+
+  return `<div class="card">
+    <div class="card-lbl">Embudo de mi equipo</div>
+    <div class="seg" style="margin-bottom:12px">
+      <div class="seg-btn ${ACTV_EQ_TAB==='hoy'?'on':''}" onclick="setActvEqTab('hoy')">Hoy</div>
+      <div class="seg-btn ${ACTV_EQ_TAB==='semana'?'on':''}" onclick="setActvEqTab('semana')">Semana</div>
+      <div class="seg-btn ${ACTV_EQ_TAB==='mes'?'on':''}" onclick="setActvEqTab('mes')">Mes</div>
+    </div>
+    <div class="actv-date-row"><div class="actv-date-lbl">${periodoLbl} · ${team.length} personas</div></div>
+    ${embudoHTML(total, inscripciones, true)}
+    <div class="eq-registro">
+      <div class="eq-registro-h">
+        <span>Quién registró</span>
+        <b class="${pctRegistro<50?'bajo':''}">${conRegistro} de ${filas.length}</b>
+      </div>
+      ${lista}
+    </div>
+  </div>`;
+}
+
 function cambiarFechaActv(delta){
   const d = new Date(ACTV_FECHA_SEL+'T00:00:00');
   d.setDate(d.getDate()+delta);
@@ -3569,6 +3685,7 @@ function renderHome(){
       ${FRASE}
       ${pendCount ? `<div class="notif notif-action" onclick="goView('equipo')"><span class="notif-ico">🔔</span><span><b>${pendCount}</b> inscripción${pendCount>1?'es':''} esperando tu aprobación</span></div>` : ''}
       ${(ME.role==='sup'||ME.role==='gc') ? `<div id="homeRivalCardWrap">${rivalCardHTML()}</div>` : ''}
+      ${embudoEquipoHTML()}
       <div id="homeRankOficinasWrap">${redRankingOficinasHTML()}</div>
       ${historicoDistritalHTML()}
       <div class="hero-card">
@@ -4026,6 +4143,7 @@ async function boot(){
   await cargarInicioMesEfectivo();
   await loadLive();
   await loadActv();
+  await loadActvEquipo();
   await loadSocial();
   await updateLoginStreak();
   await loadMiRangoVivo();
@@ -4045,6 +4163,7 @@ async function boot(){
     await cargarInicioMesEfectivo();
     await loadLive();
     await loadActv();
+    await loadActvEquipo();
     await loadSocial();
     await loadMiRangoVivo();
   await loadOficinaPlanVivo();

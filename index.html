@@ -652,7 +652,26 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;overscrol
 .patterson-typing span:nth-child(2){animation-delay:.2s;}
 .patterson-typing span:nth-child(3){animation-delay:.4s;}
 @keyframes pattersonBlink{0%,60%,100%{opacity:.3;transform:translateY(0);}30%{opacity:1;transform:translateY(-3px);}}
+.patterson-bubble.md{white-space:normal;}
+.md-l+.md-l{margin-top:2px;}
+.md-sp{height:7px;}
+.md-hr{height:1px;background:var(--line);margin:9px 0;}
+.md-h{font-weight:800;font-size:12.5px;letter-spacing:.3px;color:var(--gold);margin:3px 0 3px;}
+.md-et{font-weight:800;color:var(--gold);letter-spacing:.2px;}
+.md-q{margin:5px 0;padding:8px 11px;border-left:3px solid var(--gold);border-radius:0 10px 10px 0;
+  background:rgba(217,164,65,.10);color:var(--bone);}
+.md-li{display:flex;gap:7px;align-items:flex-start;margin-top:3px;}
+.md-mark{flex-shrink:0;min-width:13px;color:var(--gold);font-weight:800;}
+.patterson-bubble strong{font-weight:800;}
+.patterson-bubble em{font-style:italic;opacity:.92;}
+.patterson-bubble code{background:rgba(255,255,255,.07);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:12px;}
 .patterson-feedback{display:flex;align-items:center;gap:6px;margin-top:4px;padding-left:2px;}
+
+.patterson-modos{flex-shrink:0;display:flex;gap:7px;padding:0 14px 4px;}
+.pat-modo{flex:1;padding:9px 6px;border-radius:13px;border:1px solid var(--line);background:var(--s2);
+  color:var(--t2);font-size:11.5px;font-weight:700;letter-spacing:.2px;cursor:pointer;}
+.pat-modo:active{transform:scale(.96);}
+.pat-modo.fin{background:rgba(240,37,4,.12);border-color:rgba(240,37,4,.4);color:#FF8168;}
 .patterson-contador-row{flex-shrink:0;padding:6px 16px;text-align:center;}
 
 .patterson-input-row{flex-shrink:0;display:flex;gap:8px;align-items:center;padding:10px 14px calc(10px + var(--safe-b));
@@ -1633,6 +1652,47 @@ async function deletePost(id){
 function openProfile(name){ PROFILE_TARGET = name; goView('perfil'); }
 
 function escapeHTML(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+// Patterson escribe en markdown por su cuenta — el modelo lo hace solo, no se lo pedimos.
+// Hasta ahora se pintaba crudo, así que 7 de cada 10 respuestas llegaban con **asteriscos**
+// a la vista. Esto es un render mínimo (negritas, cursivas, código, viñetas, numerales y
+// las etiquetas del formato de diagnóstico), SIEMPRE sobre texto ya escapado: primero
+// escapeHTML, después el markdown, nunca al revés — si no, cualquiera podría inyectar HTML.
+const ETIQUETAS_PATTERSON = /^(CAUSA PROBABLE|PREGUNTA|SI RESPONDE A|SI RESPONDE B|RESPUESTA|IMPACTO|CIERRE|OBJECI[ÓO]N DECLARADA|OBJECI[ÓO]N RA[ÍI]Z|OBJECI[ÓO]N|EJERCICIO|CALIFICACI[ÓO]N)\s*:/;
+
+function mdEnLinea(s){
+  return s
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(^|[\s(¡¿"'—-])\*([^*\n]+)\*/g, '$1<em>$2</em>')
+    .replace(/(^|[\s(¡¿"'—-])_([^_\n]+)_/g, '$1<em>$2</em>');
+}
+
+// Se pinta línea por línea a propósito, sin <ul>/<ol>: Patterson suele separar los puntos
+// del cierre de un roleplay con renglones en blanco, y una lista de verdad se reiniciaría
+// en 1 cada vez. Aquí el número que él escribió es el número que se ve.
+function mdChat(texto){
+  return escapeHTML(texto).split('\n').map(cruda=>{
+    const l = cruda.trim();
+    if(!l) return '<div class="md-sp"></div>';
+    if(/^(-{3,}|_{3,}|\*{3,})$/.test(l)) return '<div class="md-hr"></div>';
+    // Ojo: la línea ya pasó por escapeHTML, así que el ">" de la cita llega como "&gt;".
+    // Las citas son lo más importante de toda la respuesta — son la frase exacta que el
+    // representante le va a decir a su prospecto, así que se pintan aparte y se pueden
+    // leer de un vistazo a media llamada.
+    const cita = l.match(/^&gt;\s?(.*)$/);
+    if(cita) return '<div class="md-q">' + mdEnLinea(cita[1]) + '</div>';
+    const enc = l.match(/^#{1,6}\s+(.*)$/);
+    if(enc) return '<div class="md-h">' + mdEnLinea(enc[1]) + '</div>';
+    const vin = l.match(/^[-*•]\s+(.*)$/);
+    if(vin) return '<div class="md-li"><span class="md-mark">•</span><span>' + mdEnLinea(vin[1]) + '</span></div>';
+    const num = l.match(/^(\d{1,2})[.)]\s+(.*)$/);
+    if(num) return '<div class="md-li"><span class="md-mark">' + num[1] + '.</span><span>' + mdEnLinea(num[2]) + '</span></div>';
+    const et = l.match(ETIQUETAS_PATTERSON);
+    if(et) return '<div class="md-l"><span class="md-et">' + et[0] + '</span> ' + mdEnLinea(l.slice(et[0].length).trim()) + '</div>';
+    return '<div class="md-l">' + mdEnLinea(l) + '</div>';
+  }).join('');
+}
 function timeAgo(ts){
   const s = Math.floor((Date.now()-ts)/1000);
   if(s<60) return 'ahora';
@@ -3523,6 +3583,7 @@ function renderPatterson(){
       ${tienePortal ? `<button onclick="abrirBancoPatterson()" style="background:none;border:none;cursor:pointer;color:var(--gold);padding:6px;">${ico('layers','currentColor',20)}</button>` : ''}
     </div>
     <div class="patterson-msgs" id="pattersonMsgs"></div>
+    <div class="patterson-modos" id="pattersonModos"></div>
     <div class="patterson-input-row">
       <input type="text" id="pattersonInput" placeholder="Escribe la objeción tal como te la dijeron…" autocomplete="off"
         onkeydown="if(event.key==='Enter') enviarMensajePatterson()">
@@ -3531,9 +3592,49 @@ function renderPatterson(){
   `;
   pintarMensajesPatterson();
   pintarContadorPatterson();
+  pintarModosPatterson();
   if(PATTERSON_HISTORIAL.length===0){
     saludarPatterson();
   }
+}
+
+// Patterson siempre supo hacer dos cosas más: actuar de prospecto para que le practiquen
+// encima (ROLEPLAY) y desmenuzar una venta perdida (COACH). En 385 conversaciones reales,
+// ROLEPLAY lo escribió una sola persona y COACH ninguna. No estaban rotas — estaban
+// escondidas detrás de una palabra que había que adivinar. Aquí son dos botones.
+let PATTERSON_EN_ROLEPLAY = false;
+
+function pintarModosPatterson(){
+  const el = document.getElementById('pattersonModos');
+  if(!el) return;
+  el.innerHTML = PATTERSON_EN_ROLEPLAY
+    ? `<button class="pat-modo fin" onclick="modoPatterson('terminar')">■ TERMINAR PRÁCTICA Y VER MI EVALUACIÓN</button>`
+    : `<button class="pat-modo" onclick="modoPatterson('roleplay')">🎭 PRACTICAR CON UN PROSPECTO</button>
+       <button class="pat-modo" onclick="modoPatterson('coach')">🎯 REVISAR UNA VENTA PERDIDA</button>`;
+}
+
+function modoPatterson(cual){
+  if(PATTERSON_ESCRIBIENDO) return;
+  if(cual==='roleplay'){
+    PATTERSON_EN_ROLEPLAY = true;
+    pintarModosPatterson();
+    mandarAPatterson('ROLEPLAY — actúa como un prospecto real y difícil de mi zona. Empieza tú, y no me la pongas fácil.');
+    return;
+  }
+  if(cual==='terminar'){
+    PATTERSON_EN_ROLEPLAY = false;
+    pintarModosPatterson();
+    mandarAPatterson('TERMINAR ROLEPLAY');
+    return;
+  }
+  // COACH sí necesita que la persona cuente qué pasó, así que no se manda solo:
+  // se le deja la palabra puesta y el cursor listo.
+  const inp = document.getElementById('pattersonInput');
+  if(!inp) return;
+  inp.value = 'COACH — ';
+  inp.placeholder = 'Cuéntame qué pasó en la venta que no cerraste…';
+  inp.focus();
+  inp.setSelectionRange(inp.value.length, inp.value.length);
 }
 
 async function saludarPatterson(){
@@ -3585,7 +3686,7 @@ function pintarMensajesPatterson(){
     return `<div class="patterson-bubble-row ${esUsuario?'yo':'el'}">
       ${!esUsuario ? `<div class="patterson-avatar"><img src="mrpatterson.gif" alt=""></div>` : ''}
       <div>
-        <div class="patterson-bubble ${esUsuario?'bubble-yo':'bubble-el'}">${escapeHTML(m.content).replace(/\n/g,'<br>')}</div>
+        <div class="patterson-bubble ${esUsuario?'bubble-yo':'bubble-el md'}">${esUsuario ? escapeHTML(m.content).replace(/\n/g,'<br>') : mdChat(m.content)}</div>
         ${feedbackHTML}
       </div>
     </div>`;
@@ -3716,6 +3817,17 @@ async function enviarMensajePatterson(){
   const texto = input.value.trim();
   if(!texto || PATTERSON_ESCRIBIENDO) return;
   input.value = '';
+  input.placeholder = 'Escribe la objeción tal como te la dijeron…';
+  mandarAPatterson(texto);
+}
+
+async function mandarAPatterson(texto){
+  if(!texto || PATTERSON_ESCRIBIENDO) return;
+  // Por si lo escriben a mano en vez de usar los botones, que la barra no se quede
+  // ofreciendo "terminar práctica" cuando ya terminó, ni al revés.
+  if(/^ROLEPLAY\b/i.test(texto)) PATTERSON_EN_ROLEPLAY = true;
+  if(/TERMINAR ROLEPLAY/i.test(texto)) PATTERSON_EN_ROLEPLAY = false;
+  pintarModosPatterson();
   pattersonAgregarMensaje('user', texto);
   PATTERSON_ESCRIBIENDO = true;
   pintarMensajesPatterson();

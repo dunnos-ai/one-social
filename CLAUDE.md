@@ -191,13 +191,23 @@ regional se le mide por su equipo, no por lo que vende él, así que ponerle
 `comisiones (zona, plan, monto, moneda, precio_lista, porcentaje, vigente_desde)`.
 `offices.zona` dice a qué tabla pertenece cada oficina.
 
-Hoy hay una sola zona, **`mexico`**, con la tabla de enero 2026, y aplica a las
-**17 oficinas mexicanas** (241 personas). El documento original venía titulado
-"Zona Norte", pero la tabla es la misma para todas — Guadalajara y Aguascalientes
-incluidas. La zona se llama `mexico` justamente para que el nombre no engañe.
+Hay dos zonas, ambas con tabla de enero 2026:
 
-**Medellín queda aparte y sin tabla**: cobra en pesos colombianos y todavía no se
-carga la suya. Sus 29 personas ven un aviso de que falta cargarla, no un número.
+| Zona | Moneda | Oficinas | Personas |
+|---|---|---|---|
+| `mexico` | MXN | 17 | 241 |
+| `colombia` | COP | 1 (Medellín) | 29 |
+
+El documento mexicano venía titulado "Zona Norte", pero la tabla es la misma para
+todas las oficinas de México — Guadalajara y Aguascalientes incluidas. La zona se
+llama `mexico` justamente para que el nombre no engañe.
+
+**En Colombia la comisión es el porcentaje sobre el precio SIN IVA**, no sobre el
+de lista: `6.920.000 / 1,19 × 12% = 697.815`. El mismo factor 0,84 se repite en
+los seis planes, así que la tabla cuadra sola. La zona colombiana no tiene A-MSI.
+
+El formato de moneda sale de la tabla (`LOCALE_POR_MONEDA`), no está fijo: México
+se ve `$21,100` y Colombia `$ 1.395.630`, con punto de miles.
 
 > Regla: si la oficina de la persona no tiene zona con tabla, **no se muestra
 > dinero**. Un número equivocado sobre lo que alguien va a cobrar es peor que

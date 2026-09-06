@@ -3045,8 +3045,12 @@ let MI_META = 0;            // meta de dinero del mes en curso
 let EXTRAS = [];            // premios, ruletas y demás, capturados por la persona
 
 function mesActualISO(){ return todayISO().slice(0,7); }
+// El formato sigue a la moneda de la zona: en México "$21,100" y en Colombia
+// "$1.395.630", con punto de miles, que es como se lee allá.
+const LOCALE_POR_MONEDA = {MXN:'es-MX', COP:'es-CO', USD:'en-US'};
 function dinero(n){
-  return new Intl.NumberFormat('es-MX', {style:'currency', currency:MONEDA, maximumFractionDigits:0}).format(n||0);
+  const loc = LOCALE_POR_MONEDA[MONEDA] || 'es-MX';
+  return new Intl.NumberFormat(loc, {style:'currency', currency:MONEDA, maximumFractionDigits:0}).format(n||0);
 }
 
 async function loadDinero(){

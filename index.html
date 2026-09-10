@@ -1183,7 +1183,7 @@ function personalBaseTotal(name){
 const GARANTIA = 12;   // inscripciones/mes para "Garantía del Mes"
 const VIAJE = 60;      // inscripciones E-J acumulado para "Viaje de Campeones"
 const MES_ACTUAL = 'Septiembre 2026'; // mes que la app registra en vivo (E-Ago ya está cerrado/auditado en el portal)
-const APP_VERSION = '202609101616'; // se actualiza en cada despliegue — usada para forzar refresco automático
+const APP_VERSION = '202609101618'; // se actualiza en cada despliegue — usada para forzar refresco automático
 
 const BADGES_DEF = [
   {id:'garantia', ico:'target', col:'var(--verde)', name:'Garantía', cond:(p)=> p.maxMonth >= GARANTIA},
@@ -4804,25 +4804,19 @@ async function verificarVersionNueva(){
     const versionServidor = (await resp.text()).trim();
     if(versionServidor && versionServidor !== APP_VERSION){
       ACTUALIZACION_YA_MOSTRADA = true;
-      mostrarBannerActualizacion();
+      // OJO: hay dos detectores de versión y no deben avisar los dos a la vez —
+      // revisarVersion() ya vigila el last-modified del index.html. Los dos usan
+      // el MISMO aviso (mostrarAvisoVersion, que se protege solo con
+      // AVISO_VERSION_PUESTO), así que salga cual salga primero, se ve un solo
+      // banner. Y es el aviso con botón Actualizar, no el de cuenta regresiva:
+      // recargar solo le tumbaría la captura a quien esté a media inscripción.
+      mostrarAvisoVersion();
     }
   }catch(e){ /* sin conexión momentánea — no pasa nada, se reintenta en el próximo ciclo */ }
 }
-function mostrarBannerActualizacion(){
-  const div = document.createElement('div');
-  div.id = 'updateBanner';
-  div.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:999;background:var(--gold);color:#1a1300;padding:12px 16px;text-align:center;font-family:var(--fd);font-weight:700;font-size:13.5px;box-shadow:0 4px 14px rgba(0,0,0,.25);';
-  div.innerHTML = `🔄 Hay una nueva versión de ONE — actualizando en <span id="updateCountdown">15</span>s… <span style="text-decoration:underline;cursor:pointer" onclick="location.reload()">Actualizar ahora</span>`;
-  document.body.prepend(div);
-  let segundos = 15;
-  const intervalo = setInterval(()=>{
-    segundos--;
-    const el = document.getElementById('updateCountdown');
-    if(el) el.textContent = segundos;
-    if(segundos <= 0){ clearInterval(intervalo); location.reload(); }
-  }, 1000);
-}
-
+// mostrarBannerActualizacion() se quitó: recargaba sola a los 15s y el proyecto
+// decidió a propósito no auto-recargar (ver "Cómo llega una versión nueva a la
+// gente" en CLAUDE.md). El aviso único es mostrarAvisoVersion().
 // ══════════ BOOT ══════════
 async function boot(){
   const ok = await ensureDirectoryLoaded();

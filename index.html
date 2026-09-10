@@ -3690,6 +3690,26 @@ function goView(v){
   if(fabPatterson) fabPatterson.classList.toggle('on', v!=='patterson' && v!=='perfil');
   renderCurrentView();
 }
+// ══════════ PINTADO SIN PARPADEO ══════════
+// Escribir innerHTML destruye y reconstruye TODO el subárbol: la pantalla pega un flashazo,
+// el scroll se va al inicio y las animaciones de entrada se reinician. El sondeo de cada 8s
+// redibuja Ranking y Equipo aunque no haya cambiado un solo número, y eso es lo que se ve
+// como parpadeo. Aquí comparamos el HTML nuevo contra el último que dejamos en ESE nodo:
+// si es idéntico, no tocamos el DOM. (El Feed ya hacía esto por su cuenta, ver renderFeed.)
+const ULTIMO_HTML = new WeakMap();
+function pintar(el, html){
+  if(!el) return false;
+  if(ULTIMO_HTML.get(el) === html) return false;   // nada cambió — cero parpadeo
+  ULTIMO_HTML.set(el, html);
+  el.innerHTML = html;
+  return true;
+}
+// Devuelve un objeto que se usa igual que el nodo (el.innerHTML = `...`) pero que por dentro
+// pasa por pintar(). Así las vistas grandes no tuvieron que reescribirse renglón por renglón.
+function lienzo(id){
+  const el = document.getElementById(id);
+  return { nodo: el, set innerHTML(html){ pintar(el, html); }, get innerHTML(){ return el ? el.innerHTML : ''; } };
+}
 function renderCurrentView(){
   if(CURRENT_VIEW==='home') renderHome();
   if(CURRENT_VIEW==='ranking') renderRanking();
@@ -4144,11 +4164,11 @@ function notifCards(){
 // resto de la pantalla — así no interrumpe si hay texto a medio escribir en el muro u otro lado.
 function refrescarRankingOficinasHome(){
   const wrap = document.getElementById('homeRankOficinasWrap');
-  if(wrap) wrap.innerHTML = redRankingOficinasHTML();
+  pintar(wrap, redRankingOficinasHTML());
 }
 function refrescarRivalCardHome(){
   const wrap = document.getElementById('homeRivalCardWrap');
-  if(wrap) wrap.innerHTML = rivalCardHTML();
+  pintar(wrap, rivalCardHTML());
 }
 // ── Frase del día ───────────────────────────────────────────────────────────
 // Es la MISMA para toda la red cada día: así se vuelve tema de conversación en
@@ -4417,7 +4437,7 @@ async function cargarRankingVivo(categoria){
   if(RANK_PERIOD==='vivo' && RANK_CAT===categoria) renderRanking();
 }
 function renderRanking(){
-  const el = document.getElementById('view-ranking');
+  const el = lienzo('view-ranking');
   const isRep = ME.role==='rep';
   const showOficina = isRep && RANK_CAT==='rep';
   const enVivo = RANK_PERIOD==='vivo';
@@ -4577,7 +4597,7 @@ function badgeRequestsPanelHTML(){
   </div>`;
 }
 function renderEquipo(){
-  const el = document.getElementById('view-equipo');
+  const el = lienzo('view-equipo');
   if(!isLeaderRole()){
     // Vista de representante: estado de sus propios envíos
     const mine = [...INSC.filter(i=>i.nombre===ME.n)].sort((a,b)=>b.ts-a.ts);
@@ -4833,31 +4853,41 @@ async function boot(){
   if(['rep','sup','gc','lead'].includes(ME.role)) document.getElementById('fabBtn').classList.add('on');
   goView('home');
   verificarVersionNueva(); // por si ya llevaba rato con la app abierta y hay una versión más nueva
-  // sondeo ligero para que aprobaciones y actividad se sientan en vivo entre dispositivos
-  setInterval(async ()=>{
-    await verificarVersionNueva();
-    await cargarInicioMesEfectivo();
-    await loadLive();
-    await loadActv();
-    await loadActvEquipo();
-    await loadEquipoDinero();
-    await loadDinero();
-    await loadSocial();
-    await loadMiRangoVivo();
-  await loadOficinaPlanVivo();
-    await checkActividadOficina();
-    if(isLeaderRole()) checkActivityPing();
-    if(CURRENT_VIEW==='ranking' && RANK_PERIOD==='vivo' && RANK_CAT!=='oficina'){
-      const cat = RANK_CAT==='distrital' ? 'distrital' : RANK_CAT;
-      await cargarRankingVivo(cat);
-    }
-    if(CURRENT_VIEW==='home'){ refrescarRankingOficinasHome(); refrescarRivalCardHome(); }
-    // En Perfil, Amigos, Home y Capacitación puede haber texto a medio escribir, un editor
-    // abierto, alguien tocando contadores/calculadoras, o (en Capacitación) un iframe de Spotify
-    // reproduciéndose que se cortaría y recargaría solo con cada redibujado — no los volvemos a
-    // dibujar solos. Los datos de fondo siguen actualizándose igual; solo la pantalla no salta sola.
-    if(CURRENT_VIEW!=='perfil' && CURRENT_VIEW!=='amigos' && CURRENT_VIEW!=='home' && CURRENT_VIEW!=='capacitacion' && CURRENT_VIEW!=='patterson') renderCurrentView();
-  }, 8000);
+  // Sondeo para que aprobaciones y actividad se sientan en vivo entre dispositivos.
+  // Tres cuidados, porque antes esto era la causa del parpadeo:
+  //  1. Con la app en segundo plano no se sondea nada (no sirve de nada y gasta batería).
+  //  2. Las cargas van en paralelo, no una tras otra: en 3G doce viajes en fila no alcanzaban
+  //     a terminar antes del siguiente tick y se encimaban.
+  //  3. Si un tick todavía no termina, el siguiente se salta en vez de acumularse.
+  let SONDEO_EN_CURSO = false;
+  async function sondeo(){
+    if(SONDEO_EN_CURSO || document.hidden) return;
+    SONDEO_EN_CURSO = true;
+    try{
+      // allSettled y no all: si una sola llamada falla (se cayó la red un segundo), las demás
+      // ya se lanzaron igual y el redibujado no se cancela por eso.
+      await Promise.allSettled([
+        verificarVersionNueva(), cargarInicioMesEfectivo(), loadLive(), loadActv(),
+        loadActvEquipo(), loadEquipoDinero(), loadDinero(), loadSocial(),
+        loadMiRangoVivo(), loadOficinaPlanVivo(), checkActividadOficina()
+      ]);
+      if(isLeaderRole()) checkActivityPing();
+      if(CURRENT_VIEW==='ranking' && RANK_PERIOD==='vivo' && RANK_CAT!=='oficina'){
+        await cargarRankingVivo(RANK_CAT==='distrital' ? 'distrital' : RANK_CAT);
+      }
+      if(CURRENT_VIEW==='home'){ refrescarRankingOficinasHome(); refrescarRivalCardHome(); }
+      // En Perfil, Amigos, Home y Capacitación puede haber texto a medio escribir, un editor
+      // abierto, alguien tocando contadores/calculadoras, o (en Capacitación) un iframe de Spotify
+      // reproduciéndose que se cortaría y recargaría solo con cada redibujado — no los volvemos a
+      // dibujar solos. Los datos de fondo siguen actualizándose igual; solo la pantalla no salta sola.
+      // Ranking y Equipo sí se redibujan, pero pasan por pintar(): si el HTML sale idéntico no se
+      // toca el DOM, así que un tick sin novedades ya no se ve.
+      if(CURRENT_VIEW!=='perfil' && CURRENT_VIEW!=='amigos' && CURRENT_VIEW!=='home' && CURRENT_VIEW!=='capacitacion' && CURRENT_VIEW!=='patterson') renderCurrentView();
+    } finally { SONDEO_EN_CURSO = false; }
+  }
+  setInterval(sondeo, 8000);
+  // Al volver a la app, ponerse al día de inmediato en vez de esperar el siguiente tick.
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) sondeo(); });
 }
 // El panel de login es "fixed" (independiente del scroll del hero) — si el logo mide más
 // que el espacio libre arriba del panel, se empalman. Este ajuste desplaza el scroll inicial

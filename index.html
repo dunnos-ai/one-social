@@ -476,6 +476,19 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;overscrol
 .lib-info{flex:1;min-width:0;}
 .lib-title{font-size:14px;font-weight:600;color:var(--bone);}
 .lib-sub{font-size:11.5px;color:var(--t3);margin-top:2px;}
+  /* Video de Capacitación. Se carga la CARÁTULA, no el reproductor: el player de
+     YouTube pesa ~1 MB y aquí casi todos abren la app con datos móviles en la calle.
+     El iframe entra apenas alguien toca play (ver abrirVideo). */
+  .vid{position:relative;width:100%;aspect-ratio:16/9;border-radius:14px;overflow:hidden;
+    background:#000;cursor:pointer;border:1px solid var(--line);}
+  .vid img{width:100%;height:100%;object-fit:cover;display:block;opacity:.82;transition:opacity .18s;}
+  .vid:active img{opacity:.6}
+  .vid iframe{width:100%;height:100%;border:0;display:block;}
+  .vid-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;}
+  .vid-play span{width:58px;height:58px;border-radius:50%;background:rgba(0,0,0,.62);
+    border:2px solid rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;
+    padding-left:4px;box-shadow:0 6px 20px rgba(0,0,0,.4);}
+  .vid-cap{display:flex;align-items:center;gap:13px;margin-top:12px;}
 .spotify-embed{border-radius:16px;overflow:hidden;margin-bottom:12px;}
 .spotify-embed iframe{display:block;border-radius:16px;}
 .lib-link{display:block;text-align:center;padding:13px;border-radius:999px;background:var(--mint);color:var(--on-mint);font-size:13px;font-weight:700;text-decoration:none;}
@@ -1183,7 +1196,7 @@ function personalBaseTotal(name){
 const GARANTIA = 12;   // inscripciones/mes para "Garantía del Mes"
 const VIAJE = 60;      // inscripciones E-J acumulado para "Viaje de Campeones"
 const MES_ACTUAL = 'Septiembre 2026'; // mes que la app registra en vivo (E-Ago ya está cerrado/auditado en el portal)
-const APP_VERSION = '202609101618'; // se actualiza en cada despliegue — usada para forzar refresco automático
+const APP_VERSION = '202609150046'; // se actualiza en cada despliegue — usada para forzar refresco automático
 
 const BADGES_DEF = [
   {id:'garantia', ico:'target', col:'var(--verde)', name:'Garantía', cond:(p)=> p.maxMonth >= GARANTIA},
@@ -4045,10 +4058,34 @@ function renderCapacitacion(){
       </a>
     </div>
     <div class="card">
-      ${cLbl('film','var(--rosa)','Videos de juntas')}
-      <div class="empty-state">${eIco('film')}Próximamente — aquí aparecerán las juntas grabadas.</div>
+      ${cLbl('film','var(--rosa)','Videos')}
+      <div class="vid" id="vidPodcast" onclick="abrirVideo('vidPodcast','JQK8iLSCyWo')">
+        <img src="https://i.ytimg.com/vi/JQK8iLSCyWo/hqdefault.jpg" alt="" loading="lazy" onerror="this.style.display='none'">
+        <div class="vid-play"><span>${ico('play','#fff',22)}</span></div>
+      </div>
+      <div class="vid-cap">
+        <div class="lib-ico" style="color:var(--rosa)">${ico('film','currentColor',18)}</div>
+        <div class="lib-info">
+          <div class="lib-title">ONE SOCIAL PODCAST</div>
+          <div class="lib-sub">Toca para reproducirlo aquí ·
+            <a href="https://youtu.be/JQK8iLSCyWo" target="_blank" rel="noopener"
+               onclick="event.stopPropagation()" style="color:var(--t3)">verlo en YouTube ↗</a></div>
+        </div>
+      </div>
+      <div class="small-note" style="margin:14px 0 0">Las juntas grabadas también van a aparecer aquí.</div>
     </div>
   `;
+}
+// Cambia la carátula por el reproductor y arranca el video. Se llama al tocar, nunca
+// al pintar la vista: así nadie gasta datos en un video que no pidió.
+function abrirVideo(contenedorId, videoId){
+  const box = document.getElementById(contenedorId);
+  if(!box || box.dataset.abierto) return;   // ya está el iframe puesto
+  box.dataset.abierto = '1';
+  box.style.cursor = 'default';
+  box.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0"
+    title="Video de capacitación" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+    referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`;
 }
 
 function roleColor(role){

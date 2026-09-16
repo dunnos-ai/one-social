@@ -489,6 +489,8 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;overscrol
     border:2px solid rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;
     padding-left:4px;box-shadow:0 6px 20px rgba(0,0,0,.4);}
   .vid-cap{display:flex;align-items:center;gap:13px;margin-top:12px;}
+    /* Cuando hay más de un video, una línea los separa para que no se lean como uno solo. */
+    .vid-blk + .vid-blk{margin-top:18px;padding-top:18px;border-top:1px solid var(--line);}
 .spotify-embed{border-radius:16px;overflow:hidden;margin-bottom:12px;}
 .spotify-embed iframe{display:block;border-radius:16px;}
 .lib-link{display:block;text-align:center;padding:13px;border-radius:999px;background:var(--mint);color:var(--on-mint);font-size:13px;font-weight:700;text-decoration:none;}
@@ -1196,7 +1198,7 @@ function personalBaseTotal(name){
 const GARANTIA = 12;   // inscripciones/mes para "Garantía del Mes"
 const VIAJE = 60;      // inscripciones E-J acumulado para "Viaje de Campeones"
 const MES_ACTUAL = 'Septiembre 2026'; // mes que la app registra en vivo (E-Ago ya está cerrado/auditado en el portal)
-const APP_VERSION = '202609150046'; // se actualiza en cada despliegue — usada para forzar refresco automático
+const APP_VERSION = '202609162110'; // se actualiza en cada despliegue — usada para forzar refresco automático
 
 const BADGES_DEF = [
   {id:'garantia', ico:'target', col:'var(--verde)', name:'Garantía', cond:(p)=> p.maxMonth >= GARANTIA},
@@ -4042,11 +4044,39 @@ async function mandarAPatterson(texto){
     pattersonAgregarMensaje('assistant', '❌ No pude conectarme. Revisa tu conexión e intenta de nuevo.');
   }
 }
+// Videos de Capacitación. Para agregar uno nuevo basta un renglón más aquí arriba:
+// el id es lo que va después de youtu.be/ o de /live/ en el enlace que manda Dirección.
+// El más reciente va primero, porque es el que la gente busca cuando entra.
+const VIDEOS_CAP = [
+  { id: '2sS5_vdfA_E', titulo: 'Junta grabada', nota: 'Transmisión en vivo del 15 de septiembre' },
+  { id: 'JQK8iLSCyWo', titulo: 'ONE SOCIAL PODCAST', nota: '' },
+];
+
+function videoCapHTML(v, n){
+  const cont = `vidCap${n}`;
+  return `
+      <div class="vid-blk">
+        <div class="vid" id="${cont}" onclick="abrirVideo('${cont}','${v.id}')">
+          <img src="https://i.ytimg.com/vi/${v.id}/hqdefault.jpg" alt="" loading="lazy" onerror="this.style.display='none'">
+          <div class="vid-play"><span>${ico('play','#fff',22)}</span></div>
+        </div>
+        <div class="vid-cap">
+          <div class="lib-ico" style="color:var(--rosa)">${ico('film','currentColor',18)}</div>
+          <div class="lib-info">
+            <div class="lib-title">${v.titulo}</div>
+            <div class="lib-sub">${v.nota ? v.nota + ' · ' : ''}Toca para reproducirlo aquí ·
+              <a href="https://youtu.be/${v.id}" target="_blank" rel="noopener"
+                 onclick="event.stopPropagation()" style="color:var(--t3)">verlo en YouTube ↗</a></div>
+          </div>
+        </div>
+      </div>`;
+}
+
 function renderCapacitacion(){
   const el = document.getElementById('view-capacitacion');
   el.innerHTML = `
     ${sTitle('cap','var(--terracota)','Capacitación')}
-    <div class="small-note" style="margin:-6px 0 14px">Recursos para crecer en la red. Pronto: videos de nuestras juntas.</div>
+    <div class="small-note" style="margin:-6px 0 14px">Recursos para crecer en la red.</div>
     <div class="card">
       ${cLbl('book','var(--morado)','Biblioteca')}
       <a class="lib-item" href="https://open.spotify.com/show/0bOIbZVA9suoK2meCl1zuy?si=HYiWhSbbQfuzDrAFEX4bvQ&utm_source=copy-link" target="_blank" rel="noopener" style="text-decoration:none;color:inherit">
@@ -4059,19 +4089,7 @@ function renderCapacitacion(){
     </div>
     <div class="card">
       ${cLbl('film','var(--rosa)','Videos')}
-      <div class="vid" id="vidPodcast" onclick="abrirVideo('vidPodcast','JQK8iLSCyWo')">
-        <img src="https://i.ytimg.com/vi/JQK8iLSCyWo/hqdefault.jpg" alt="" loading="lazy" onerror="this.style.display='none'">
-        <div class="vid-play"><span>${ico('play','#fff',22)}</span></div>
-      </div>
-      <div class="vid-cap">
-        <div class="lib-ico" style="color:var(--rosa)">${ico('film','currentColor',18)}</div>
-        <div class="lib-info">
-          <div class="lib-title">ONE SOCIAL PODCAST</div>
-          <div class="lib-sub">Toca para reproducirlo aquí ·
-            <a href="https://youtu.be/JQK8iLSCyWo" target="_blank" rel="noopener"
-               onclick="event.stopPropagation()" style="color:var(--t3)">verlo en YouTube ↗</a></div>
-        </div>
-      </div>
+      ${VIDEOS_CAP.map(videoCapHTML).join('')}
       <div class="small-note" style="margin:14px 0 0">Las juntas grabadas también van a aparecer aquí.</div>
     </div>
   `;

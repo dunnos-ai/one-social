@@ -491,6 +491,14 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;overscrol
   .vid-cap{display:flex;align-items:center;gap:13px;margin-top:12px;}
     /* Cuando hay más de un video, una línea los separa para que no se lean como uno solo. */
     .vid-blk + .vid-blk{margin-top:18px;padding-top:18px;border-top:1px solid var(--line);}
+    /* Reproductor de Spotify. Igual que los videos: primero la tarjeta liviana, el
+       iframe entra al tocar (el reproductor de Spotify pesa y aquí casi todos abren
+       la app con datos móviles). 352px es el alto en el que Spotify muestra la lista
+       de episodios, para que cada quien elija el que quiere oír. */
+    .pod-caja{border-radius:14px;overflow:hidden;background:#000;min-height:352px;}
+    .pod-caja iframe{width:100%;height:352px;border:0;display:block;}
+    .pod-toca{cursor:pointer;}
+    .pod-toca:active{opacity:.7}
 .spotify-embed{border-radius:16px;overflow:hidden;margin-bottom:12px;}
 .spotify-embed iframe{display:block;border-radius:16px;}
 .lib-link{display:block;text-align:center;padding:13px;border-radius:999px;background:var(--mint);color:var(--on-mint);font-size:13px;font-weight:700;text-decoration:none;}
@@ -1198,7 +1206,7 @@ function personalBaseTotal(name){
 const GARANTIA = 12;   // inscripciones/mes para "Garantía del Mes"
 const VIAJE = 60;      // inscripciones E-J acumulado para "Viaje de Campeones"
 const MES_ACTUAL = 'Septiembre 2026'; // mes que la app registra en vivo (E-Ago ya está cerrado/auditado en el portal)
-const APP_VERSION = '202609162113'; // se actualiza en cada despliegue — usada para forzar refresco automático
+const APP_VERSION = '202609162117'; // se actualiza en cada despliegue — usada para forzar refresco automático
 
 const BADGES_DEF = [
   {id:'garantia', ico:'target', col:'var(--verde)', name:'Garantía', cond:(p)=> p.maxMonth >= GARANTIA},
@@ -4047,6 +4055,10 @@ async function mandarAPatterson(texto){
 // Videos de Capacitación. Para agregar uno nuevo basta un renglón más aquí arriba:
 // el id es lo que va después de youtu.be/ o de /live/ en el enlace que manda Dirección.
 // El más reciente va primero, porque es el que la gente busca cuando entra.
+// El show de Spotify. Se deja aparte porque también lo usa el enlace de respaldo.
+const PODCAST_SPOTIFY = 'https://open.spotify.com/show/0bOIbZVA9suoK2meCl1zuy';
+const PODCAST_SPOTIFY_ID = '0bOIbZVA9suoK2meCl1zuy';
+
 const VIDEOS_CAP = [
   { id: '2sS5_vdfA_E', titulo: 'Entrevista al fundador de la empresa', nota: '' },
   { id: 'JQK8iLSCyWo', titulo: 'One Social Podcast — Plática con Mauricio, fundador de Colombia', nota: '' },
@@ -4072,6 +4084,19 @@ function videoCapHTML(v, n){
       </div>`;
 }
 
+// Mete el reproductor de Spotify dentro de la app, en lugar de mandar a la gente afuera.
+// Se llama al tocar, no al pintar la vista. Ojo: el navegador del celular no deja que
+// arranque solo, así que adentro del reproductor todavía hay que darle play una vez.
+function abrirPodcast(){
+  const box = document.getElementById('podZonaUno');
+  if(!box || box.dataset.abierto) return;
+  box.dataset.abierto = '1';
+  box.className = 'pod-caja';
+  box.innerHTML = `<iframe src="https://open.spotify.com/embed/show/${PODCAST_SPOTIFY_ID}?utm_source=generator"
+    title="Podcast Zona Uno" loading="lazy"
+    allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>`;
+}
+
 function renderCapacitacion(){
   const el = document.getElementById('view-capacitacion');
   el.innerHTML = `
@@ -4079,13 +4104,17 @@ function renderCapacitacion(){
     <div class="small-note" style="margin:-6px 0 14px">Recursos para crecer en la red.</div>
     <div class="card">
       ${cLbl('book','var(--morado)','Biblioteca')}
-      <a class="lib-item" href="https://open.spotify.com/show/0bOIbZVA9suoK2meCl1zuy?si=HYiWhSbbQfuzDrAFEX4bvQ&utm_source=copy-link" target="_blank" rel="noopener" style="text-decoration:none;color:inherit">
-        <div class="lib-ico" style="color:var(--verde)">${ico('mic','currentColor',18)}</div>
-        <div class="lib-info">
-          <div class="lib-title">Podcast Zona Uno</div>
-          <div class="lib-sub">Toca para escucharlo en Spotify ↗</div>
+      <div id="podZonaUno">
+        <div class="lib-item pod-toca" onclick="abrirPodcast()">
+          <div class="lib-ico" style="color:var(--verde)">${ico('mic','currentColor',18)}</div>
+          <div class="lib-info">
+            <div class="lib-title">Podcast Zona Uno</div>
+            <div class="lib-sub">Toca para escucharlo aquí mismo</div>
+          </div>
         </div>
-      </a>
+      </div>
+      <div class="small-note" style="margin:10px 0 0">Si no carga o lo prefieres en la app,
+        <a href="${PODCAST_SPOTIFY}" target="_blank" rel="noopener" style="color:var(--t3)">ábrelo en Spotify ↗</a></div>
     </div>
     <div class="card">
       ${cLbl('film','var(--rosa)','Videos')}

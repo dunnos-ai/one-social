@@ -1208,7 +1208,7 @@ function personalBaseTotal(name){
 const GARANTIA = 12;   // inscripciones/mes para "Garantía del Mes"
 const VIAJE = 60;      // inscripciones E-J acumulado para "Viaje de Campeones"
 const MES_ACTUAL = 'Septiembre 2026'; // mes que la app registra en vivo (E-Ago ya está cerrado/auditado en el portal)
-const APP_VERSION = '202609162128'; // se actualiza en cada despliegue — usada para forzar refresco automático
+const APP_VERSION = '202609170452'; // se actualiza en cada despliegue — usada para forzar refresco automático
 
 const BADGES_DEF = [
   {id:'garantia', ico:'target', col:'var(--verde)', name:'Garantía', cond:(p)=> p.maxMonth >= GARANTIA},
@@ -2156,16 +2156,43 @@ function buildDirectory(){
 }
 let DIRECTORY = [];
 let _directoryLoadPromise = null;
+let DIRECTORIO_TS = 0;                           // cuándo se leyó por última vez quién es de quién
+const DIRECTORIO_MAX_EDAD_MS = 5*60*1000;        // 5 min
+
 async function ensureDirectoryLoaded(){
   if(SEED_REPS.length || SEED_SUP.length || SEED_GC.length) return true; // ya cargado
   if(_directoryLoadPromise) return _directoryLoadPromise; // ya hay una carga en curso — no dupliques la petición
   _directoryLoadPromise = (async () => {
     const ok = await loadDirectoryFromSupabase();
-    if(ok) DIRECTORY = buildDirectory();
+    if(ok){ DIRECTORY = buildDirectory(); DIRECTORIO_TS = Date.now(); }
     _directoryLoadPromise = null;
     return ok;
   })();
   return _directoryLoadPromise;
+}
+
+// ME.data apunta DENTRO de los arreglos SEED_*. Al releer el directorio esos arreglos se
+// reemplazan completos, así que hay que volver a apuntar o ME.data se queda huérfano.
+function revincularME(){
+  if(!ME || !ME.data) return;
+  if(ME.role==='rep')      ME.data = SEED_REPS.find(r=>r.id===ME.data.id) || ME.data;
+  else if(ME.role==='sup') ME.data = SEED_SUP.find(r=>r.id===ME.data.id)  || ME.data;
+  else if(ME.role==='gc')  ME.data = SEED_GC.find(r=>r.id===ME.data.id)   || ME.data;
+}
+
+// El directorio se leía UNA sola vez, al abrir la app, y nunca más. Si Dirección movía a
+// alguien de equipo, el teléfono que ya estaba abierto seguía con la jerarquía vieja — y la
+// cola de aprobaciones filtra por gerente, así que una inscripción podía no aparecerle a
+// quien le tocaba hasta cerrar y volver a abrir la app. Nadie iba a adivinar eso. Ahora se
+// relee cada 5 minutos dentro del sondeo (y el sondeo corre también al volver a la app).
+async function refrescarDirectorio(forzar){
+  if(!forzar && Date.now() - DIRECTORIO_TS < DIRECTORIO_MAX_EDAD_MS) return false;
+  const ok = await loadDirectoryFromSupabase();
+  if(!ok) return false;
+  DIRECTORY = buildDirectory();
+  DIRECTORIO_TS = Date.now();
+  revincularME();
+  return true;
 }
 
 function norm(s){ return (s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
@@ -4933,11 +4960,7 @@ async function boot(){
   if(!ok){ showToast('❌ No se pudo conectar con la base de datos'); return; }
   // ME.data puede apuntar a un objeto placeholder (creado antes de tener SEED_REPS cargado) —
   // lo re-vinculamos ya con los datos reales recién cargados.
-  if(ME){
-    if(ME.role==='rep') ME.data = SEED_REPS.find(r=>r.id===ME.data.id) || ME.data;
-    else if(ME.role==='sup') ME.data = SEED_SUP.find(r=>r.id===ME.data.id) || ME.data;
-    else if(ME.role==='gc') ME.data = SEED_GC.find(r=>r.id===ME.data.id) || ME.data;
-  }
+  revincularME();
   await cargarInicioMesEfectivo();
   await loadLive();
   await loadActv();
@@ -4971,7 +4994,7 @@ async function boot(){
       // allSettled y no all: si una sola llamada falla (se cayó la red un segundo), las demás
       // ya se lanzaron igual y el redibujado no se cancela por eso.
       await Promise.allSettled([
-        verificarVersionNueva(), cargarInicioMesEfectivo(), loadLive(), loadActv(),
+        verificarVersionNueva(), refrescarDirectorio(), cargarInicioMesEfectivo(), loadLive(), loadActv(),
         loadActvEquipo(), loadEquipoDinero(), loadDinero(), loadSocial(),
         loadMiRangoVivo(), loadOficinaPlanVivo(), checkActividadOficina()
       ]);

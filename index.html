@@ -973,6 +973,9 @@ let SEED_REPS = [];
 let SEED_SUP = [];
 let SEED_GC = [];
 let LIDERES = {regional:[], divisional:[], distrital:[]};
+// Quién supervisaba a cada representante en cada mes ya cerrado: {profile_id: [{sup, desde}...]}.
+// Sin entradas, todo su año cuenta para su supervisor de hoy — que es como funcionó siempre.
+let SUP_HIST = {};
 let FRANQUICIATARIOS = []; // dueños de oficina: {id, n, f (oficinas separadas por coma), oficinas:[...]}
 let GERENCIA_GENERAL = []; // Gerente(s) General(es): {id, n, f:'Toda la red', oficinas:[...todas]}
 let LIDERAZGO_PERSONAL = []; // Distritales/Divisionales/Regionales que venden directo: {id, n, f, personal:{ene..jul}}
@@ -1002,6 +1005,25 @@ function profileIdByName(name){
   const g = SEED_GC.find(x=>x.n===name); if(g) return g.id;
   if(LIDER_IDS[name]) return LIDER_IDS[name];
   return null;
+}
+
+const MESES_ORD = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+
+// Un cambio de equipo no debe llevarse el historial del supervisor anterior: si en agosto
+// una venta se hizo bajo Fulana, en agosto cuenta para Fulana aunque hoy la persona ya esté
+// con Mengana. La tabla supervisor_historico guarda desde qué mes manda cada supervisor;
+// profiles.supervisor_id sigue siendo el de HOY, que es el que vale para aprobar y para el
+// mes en vivo. Un mes anterior a la primera entrada no cuenta para nadie: si hay historial,
+// tiene que estar completo, porque caer en "el de hoy" sería justo el error que esto arregla.
+function supDelMes(rep, mes){
+  const hist = SUP_HIST[rep.id];
+  if(!hist || !hist.length) return rep.sup;
+  const i = MESES_ORD.indexOf(mes);
+  let vigente = null;
+  for(const h of hist){
+    if(MESES_ORD.indexOf(h.desde) <= i) vigente = h; else break;
+  }
+  return vigente ? vigente.sup : '';
 }
 
 async function loadDirectoryFromSupabase(){
@@ -1045,6 +1067,9 @@ async function loadDirectoryFromSupabase(){
     acc.t += r.total;
   });
 
+  const { data: supHist, error: errSH } = await sb.from('supervisor_historico').select('profile_id,supervisor_id,desde_mes');
+  if(errSH){ console.error('supervisor_historico', errSH); }
+
   const { data: profOffices, error: errPO } = await sb.from('profile_offices').select('profile_id,office_id,desde_mes');
   if(errPO){ console.error('profile_offices', errPO); }
   const officesByProfile = {};
@@ -1056,6 +1081,12 @@ async function loadDirectoryFromSupabase(){
 
   const byId = {}; profiles.forEach(p=> byId[p.id]=p);
   const nameOf = id => id && byId[id] ? byId[id].nombre : '';
+
+  SUP_HIST = {};
+  (supHist||[]).forEach(h=>{
+    (SUP_HIST[h.profile_id] = SUP_HIST[h.profile_id] || []).push({ sup: nameOf(h.supervisor_id), desde: h.desde_mes });
+  });
+  Object.values(SUP_HIST).forEach(lista => lista.sort((a,b)=> MESES_ORD.indexOf(a.desde) - MESES_ORD.indexOf(b.desde)));
 
   const reps=[], sups=[], gcs=[], franqs=[], generales=[], liderazgoPersonal=[];
   const lid = {regional:[], divisional:[], distrital:[]};
@@ -1121,9 +1152,11 @@ async function loadDirectoryFromSupabase(){
 
   // Sup y GC se miden por el total de SU EQUIPO más su propia venta personal.
   const MKEYS = ['ene','feb','mar','abr','may','jun','jul','ago'];
+  // Ojo: cada mes se suma con el supervisor que mandaba ESE mes, no con el de hoy.
   sups.forEach(s=>{
-    const team = reps.filter(r=>r.sup===s.n);
-    MKEYS.forEach(k=> s[k] = team.reduce((acc,r)=>acc+(r[k]||0),0) + (s.personal[k]||0));
+    MKEYS.forEach(k=>{
+      s[k] = reps.reduce((acc,r)=> acc + (supDelMes(r,k)===s.n ? (r[k]||0) : 0), 0) + (s.personal[k]||0);
+    });
     s.t = MKEYS.reduce((acc,k)=>acc+s[k],0);
   });
   gcs.forEach(g=>{
@@ -1208,7 +1241,7 @@ function personalBaseTotal(name){
 const GARANTIA = 12;   // inscripciones/mes para "Garantía del Mes"
 const VIAJE = 60;      // inscripciones E-J acumulado para "Viaje de Campeones"
 const MES_ACTUAL = 'Septiembre 2026'; // mes que la app registra en vivo (E-Ago ya está cerrado/auditado en el portal)
-const APP_VERSION = '202609170452'; // se actualiza en cada despliegue — usada para forzar refresco automático
+const APP_VERSION = '202609221756'; // se actualiza en cada despliegue — usada para forzar refresco automático
 
 const BADGES_DEF = [
   {id:'garantia', ico:'target', col:'var(--verde)', name:'Garantía', cond:(p)=> p.maxMonth >= GARANTIA},

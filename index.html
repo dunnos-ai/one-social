@@ -976,6 +976,11 @@ let LIDERES = {regional:[], divisional:[], distrital:[]};
 // Quién supervisaba a cada representante en cada mes ya cerrado: {profile_id: [{sup, desde}...]}.
 // Sin entradas, todo su año cuenta para su supervisor de hoy — que es como funcionó siempre.
 let SUP_HIST = {};
+// Oficinas donde Dirección designó a alguien distinto para autorizar: {oficina: nombre}.
+// Ese aprobador SUSTITUYE al gerente comercial en el segundo paso — el gerente conserva
+// su puesto, su equipo y sus números, sólo deja de autorizar. Distrital y divisional
+// siguen viendo lo mismo que antes, para que nada se atore si el aprobador no entra.
+let APROBADOR_OFICINA = {};
 let FRANQUICIATARIOS = []; // dueños de oficina: {id, n, f (oficinas separadas por coma), oficinas:[...]}
 let GERENCIA_GENERAL = []; // Gerente(s) General(es): {id, n, f:'Toda la red', oficinas:[...todas]}
 let LIDERAZGO_PERSONAL = []; // Distritales/Divisionales/Regionales que venden directo: {id, n, f, personal:{ene..jul}}
@@ -1027,7 +1032,7 @@ function supDelMes(rep, mes){
 }
 
 async function loadDirectoryFromSupabase(){
-  const { data: offices, error: errO } = await sb.from('offices').select('id,name,zona');
+  const { data: offices, error: errO } = await sb.from('offices').select('id,name,zona,aprobador_id');
   if(errO){ console.error('offices', errO); return false; }
   const officeName = {}; offices.forEach(o=> officeName[o.id]=o.name);
   OFFICE_ID_BY_NAME = {}; offices.forEach(o=> OFFICE_ID_BY_NAME[o.name]=o.id);
@@ -1081,6 +1086,9 @@ async function loadDirectoryFromSupabase(){
 
   const byId = {}; profiles.forEach(p=> byId[p.id]=p);
   const nameOf = id => id && byId[id] ? byId[id].nombre : '';
+
+  APROBADOR_OFICINA = {};
+  offices.forEach(o=>{ if(o.aprobador_id) APROBADOR_OFICINA[o.name] = nameOf(o.aprobador_id); });
 
   SUP_HIST = {};
   (supHist||[]).forEach(h=>{
@@ -1241,7 +1249,7 @@ function personalBaseTotal(name){
 const GARANTIA = 12;   // inscripciones/mes para "Garantía del Mes"
 const VIAJE = 60;      // inscripciones E-J acumulado para "Viaje de Campeones"
 const MES_ACTUAL = 'Septiembre 2026'; // mes que la app registra en vivo (E-Ago ya está cerrado/auditado en el portal)
-const APP_VERSION = '202609221756'; // se actualiza en cada despliegue — usada para forzar refresco automático
+const APP_VERSION = '202609222133'; // se actualiza en cada despliegue — usada para forzar refresco automático
 
 const BADGES_DEF = [
   {id:'garantia', ico:'target', col:'var(--verde)', name:'Garantía', cond:(p)=> p.maxMonth >= GARANTIA},
@@ -2115,16 +2123,22 @@ function eneJunOf(nombre){
   if(!md) return 0;
   return ['ene','feb','mar','abr','may','jun'].reduce((a,k)=>a+(md[k]||0),0);
 }
+// Quién ocupa el lugar del gerente comercial para autorizar en esta oficina.
+// Si Dirección designó a alguien, ese; si no, el gerente de siempre.
+function aprobadorDeOficina(oficina, rep){
+  return APROBADOR_OFICINA[oficina] || (rep ? rep.gc : '') || '';
+}
 function segundoAprobador(rep){
   if(!rep) return null;
-  return rep.gc || rep.gdt || rep.gdv || null; // regional NUNCA autoriza — divisional es la última línea
+  return aprobadorDeOficina(rep.f, rep) || rep.gdt || rep.gdv || null; // regional NUNCA autoriza salvo que se le designe
 }
 function esAutoSup(rep){ return rep && rep.sup === rep.n; } // supervisor registrando su propia inscripción
-// Cadena completa de aprobación de un rep, de abajo hacia arriba. Regional queda fuera —
-// no autoriza inscripciones, divisional es el tope antes de pasar a Gerencia General.
+// Cadena completa de aprobación de un rep, de abajo hacia arriba. El regional no entra
+// por jerarquía — el divisional es el tope antes de Gerencia General —, pero sí entra si
+// Dirección lo designó aprobador de esa oficina (ver aprobadorDeOficina).
 function cadenaAprobacion(rep){
   if(!rep) return [];
-  return [rep.sup, rep.gc, rep.gdt, rep.gdv].filter(Boolean);
+  return [rep.sup, aprobadorDeOficina(rep.f, rep), rep.gdt, rep.gdv].filter(Boolean);
 }
 // Cuando un GERENTE (no el propio rep) registra la inscripción, el aprobador requerido
 // es la siguiente persona en la cadena, inmediatamente arriba de quien la registró.
@@ -2661,7 +2675,8 @@ function myApprovalQueue(){
     if(i.estado!==ESTADOS.SUP_OK) return false;
     const rep = findAnyPersonData(i.nombre);
     if(!rep) return i.aprobadorRequerido===ME.n; // sin datos de jerarquía disponibles: modo anterior de respaldo
-    const nivelesSuperioresAlSupervisor = [rep.gc, rep.gdt, rep.gdv].filter(Boolean);
+    // La oficina de la inscripción manda, no la oficina base del rep: alguien puede vender en otra plaza.
+    const nivelesSuperioresAlSupervisor = [aprobadorDeOficina(i.franquicia, rep), rep.gdt, rep.gdv].filter(Boolean);
     if(nivelesSuperioresAlSupervisor.length) return nivelesSuperioresAlSupervisor.includes(ME.n);
     return i.aprobadorRequerido===ME.n; // nadie por encima del supervisor: usa lo ya guardado
   });

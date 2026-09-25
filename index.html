@@ -1249,7 +1249,7 @@ function personalBaseTotal(name){
 const GARANTIA = 12;   // inscripciones/mes para "Garantía del Mes"
 const VIAJE = 60;      // inscripciones E-J acumulado para "Viaje de Campeones"
 const MES_ACTUAL = 'Septiembre 2026'; // mes que la app registra en vivo (E-Ago ya está cerrado/auditado en el portal)
-const APP_VERSION = '202609251221'; // se actualiza en cada despliegue — usada para forzar refresco automático
+const APP_VERSION = '202609251325'; // se actualiza en cada despliegue — usada para forzar refresco automático
 
 const BADGES_DEF = [
   {id:'garantia', ico:'target', col:'var(--verde)', name:'Garantía', cond:(p)=> p.maxMonth >= GARANTIA},
@@ -2884,9 +2884,10 @@ function redRankingOficinasHTML(){
   const list = RED_RANKING_OFICINAS_VIVO;
   if(!list.length) return '';
   const misOficinas = (ME.ownedOffices||[]).map(norm);
-  // De Gerente Comercial hacia arriba la lista trae TODAS las oficinas de su zona, no sólo
-  // las suyas (ver red_ranking_oficinas_vivo). Así que el título depende de lo que de verdad
-  // llegó, no del puesto: si viene más de lo propio, es un ranking, no "tu oficina".
+  // De Gerente Comercial en adelante la lista trae TODA la red, no sólo sus oficinas
+  // (ver red_ranking_oficinas_vivo). El supervisor sigue recibiendo sólo la suya. Así que
+  // el título depende de lo que de verdad llegó, no del puesto: si viene más de lo propio,
+  // es un ranking de oficinas, no "tu oficina".
   const esTodas = ME.role==='general' || list.length > misOficinas.length;
   const maxTotal = Math.max(1, ...list.map(r=>r.total));
   const rows = list.slice(0,18).map(r=>{

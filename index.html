@@ -511,6 +511,7 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;overscrol
 .rango-item.rango-current{background:var(--mint-w);border-color:var(--mint-b);}
 .rango-item.rango-passed{opacity:.5;}
 .rango-item.rango-locked{opacity:.35;}
+.rango-item.rango-next{opacity:.8;border-color:var(--line);}
 .ri-ico{font-size:19px;flex-shrink:0;}
 .ri-info{flex:1;min-width:0;}
 .ri-name{font-size:13px;font-weight:600;color:var(--bone);}
@@ -1249,7 +1250,7 @@ function personalBaseTotal(name){
 const GARANTIA = 12;   // inscripciones/mes para "Garantía del Mes"
 const VIAJE = 60;      // inscripciones E-J acumulado para "Viaje de Campeones"
 const MES_ACTUAL = 'Septiembre 2026'; // mes que la app registra en vivo (E-Ago ya está cerrado/auditado en el portal)
-const APP_VERSION = '202609251325'; // se actualiza en cada despliegue — usada para forzar refresco automático
+const APP_VERSION = '202609291236'; // se actualiza en cada despliegue — usada para forzar refresco automático
 
 const BADGES_DEF = [
   {id:'garantia', ico:'target', col:'var(--verde)', name:'Garantía', cond:(p)=> p.maxMonth >= GARANTIA},
@@ -1883,7 +1884,7 @@ function renderProfile(name){
       <div class="pm-info">
         <div class="pm-name">${name}${esCumple ? ' 🎂' : ''}</div>
         <div class="pm-role">${identity.roleLbl}${metaLine?' · '+metaLine:''}</div>
-        ${(identity.role==='rep' && (isMe || status==='amigos')) ? chipDeRangoHTML(liveDeEstaPersona) : ''}
+        ${(identity.role==='rep' && (isMe || status==='amigos')) ? chipDeRangoHTML(maxMonthOf(name, liveDeEstaPersona)) : ''}
         ${extra.bio ? `<div class="pm-bio">${escapeHTML(extra.bio)}</div>` : ''}
         ${socialLinksHTML ? `<div class="pm-social-row">${socialLinksHTML}</div>` : ''}
       </div>
@@ -2833,38 +2834,53 @@ const RANGOS_DEF = [
   {ico:'gem', col:'var(--morado)', name:'Senior',    min:13, max:15},
   {ico:'trophy', col:'var(--gold)', name:'Élite',     min:16, max:Infinity},
 ];
-function currentTierName(liveMonth){
-  const tier = RANGOS_DEF.find(r=> liveMonth>=r.min && liveMonth<=r.max) || RANGOS_DEF[RANGOS_DEF.length-1];
-  return tier.name;
-}
-// El rango de carrera (Recluta → Élite) mide venta personal del MES EN CURSO y es una
-// escalera de REPRESENTANTE. A un supervisor, gerente comercial, distrital, divisional
-// o regional no se le pone: a ellos se les mide por su equipo, no por su venta propia,
-// y encasillarlos en "Recluta" por vender poco personalmente sería un insulto.
+// El rango SE GANA UNA VEZ Y NO SE PIERDE. Antes se calculaba con la venta del mes en
+// curso, así que quien llegó a Élite en agosto amanecía el 1 de septiembre otra vez como
+// Recluta: un rango que se cae cada mes no es un rango, es un marcador. Ahora se mide con
+// el MEJOR MES de toda su historia (meses cerrados + el que va corriendo, ver maxMonthOf):
+// si alguna vez hizo 16 en un mes, es Élite para siempre.
+//
+// Es una escalera de REPRESENTANTE. A un supervisor, gerente comercial, distrital,
+// divisional o regional no se le pone: a ellos se les mide por su equipo, no por su venta
+// propia, y encasillarlos en "Recluta" por vender poco personalmente sería un insulto.
 // Además, ese dato fuera de tu oficina se muestra anónimo a propósito — por eso el chip
 // aparece sólo en tu perfil y en el de tus amigos.
-function tierDe(liveMonth){
-  return RANGOS_DEF.find(r => liveMonth >= r.min && liveMonth <= r.max) || RANGOS_DEF[RANGOS_DEF.length-1];
+function tierDe(mejorMes){
+  return RANGOS_DEF.find(r => mejorMes >= r.min && mejorMes <= r.max) || RANGOS_DEF[RANGOS_DEF.length-1];
 }
-function chipDeRangoHTML(liveMonth){
-  const t = tierDe(liveMonth);
+function tierIndexDe(mejorMes){
+  const i = RANGOS_DEF.findIndex(r => mejorMes >= r.min && mejorMes <= r.max);
+  return i < 0 ? RANGOS_DEF.length - 1 : i;
+}
+function currentTierName(mejorMes){ return tierDe(mejorMes).name; }
+function chipDeRangoHTML(mejorMes){
+  const t = tierDe(mejorMes);
   return '<div class="pm-tier" style="--tier-c:' + t.col + '">'
     + ico(t.ico, 'var(--tier-c)', 15)
     + '<span class="pm-tier-name">' + t.name + '</span>'
     + '<span class="pm-tier-req">' + t.min + (isFinite(t.max) ? '\u2013' + t.max : '+') + ' insc./mes</span>'
     + '</div>';
 }
-function rangosHTML(liveMonth, t3){
-  const rows = RANGOS_DEF.map(r=>{
-    let st = liveMonth > r.max ? 'passed' : (liveMonth >= r.min ? 'current' : 'locked');
-    let pct = st==='current' ? Math.min(100, Math.round((liveMonth-r.min)/((isFinite(r.max)?r.max:r.min+5)-r.min+1)*100)) : (st==='passed'?100:0);
-    const badge = st==='passed' ? '✓ SUPERADO' : st==='current' ? 'AQUÍ ESTÁS' : 'BLOQUEADO';
+function rangosHTML(mejorMes, mesActual, t3){
+  // Los de abajo quedan superados, el suyo es suyo para siempre, y el de arriba es el que
+  // sigue por desbloquear: ése sí muestra cuánto le falta ESTE mes, porque un rango se gana
+  // haciendo el número en un solo mes.
+  const idx = tierIndexDe(mejorMes);
+  const rows = RANGOS_DEF.map((r,i)=>{
+    const esSiguiente = i === idx + 1;
+    const st = i < idx ? 'passed' : i === idx ? 'current' : (esSiguiente ? 'next' : 'locked');
+    const falta = Math.max(0, r.min - mesActual);
+    const pct = esSiguiente ? Math.min(100, Math.round(mesActual / r.min * 100)) : 0;
+    const badge = st==='passed' ? '✓ SUPERADO' : st==='current' ? 'TU RANGO' : esSiguiente ? 'SIGUIENTE' : 'BLOQUEADO';
+    const req = esSiguiente
+      ? `${r.min}${isFinite(r.max)?'–'+r.max:'+'} en un mes · te falta${falta===1?' 1':'n '+falta} este mes`
+      : `${r.min}${isFinite(r.max)?'–'+r.max:'+'} inscripciones en un mes`;
     return `<div class="rango-item rango-${st}">
-      <div class="ri-ico" style="color:${st==='locked'?'var(--text3)':r.col}">${ico(r.ico,'currentColor',20)}</div>
+      <div class="ri-ico" style="color:${(st==='locked')?'var(--text3)':r.col}">${ico(r.ico,'currentColor',20)}</div>
       <div class="ri-info">
         <div class="ri-name">${r.name}</div>
-        <div class="ri-req">${r.min}${isFinite(r.max)?'–'+r.max:'+'} inscripciones/mes</div>
-        ${st==='current'?`<div class="ri-progress"><div class="ri-progress-fill" style="width:${pct}%"></div></div>`:''}
+        <div class="ri-req">${req}</div>
+        ${esSiguiente?`<div class="ri-progress"><div class="ri-progress-fill" style="width:${pct}%"></div></div>`:''}
       </div>
       <div class="ri-badge">${badge}</div>
     </div>`;
@@ -4307,11 +4323,13 @@ async function registrarBadgesNuevosEnFeed(newBadges){
   }
   await loadSocial();
 }
-function detectTierUp(tierName){
-  let leveled = false;
-  if(PREV_TIER!==null && PREV_TIER!==tierName) leveled = true;
-  PREV_TIER = tierName;
-  return leveled;
+// Sólo se festeja cuando SUBE. Antes comparaba nombres, así que al empezar un mes en cero
+// también gritaba "¡Subiste a rango Recluta!". Ahora el rango ya no baja, y aun así se
+// compara por nivel para que nunca vuelva a pasar.
+function detectTierUp(tierIdx){
+  const subio = PREV_TIER !== null && tierIdx > PREV_TIER;
+  PREV_TIER = tierIdx;
+  return subio;
 }
 
 // Racha de días consecutivos entrando a la app (estilo Duolingo)
@@ -4475,8 +4493,9 @@ function renderHome(){
     const ringPct = Math.min(1, live/GARANTIA);
     const newBadges = detectNewBadges(won);
     if(newBadges.length) registrarBadgesNuevosEnFeed(newBadges);
-    const tierName = currentTierName(live);
-    const tierLeveled = detectTierUp(tierName);
+    const miMejorMes = maxMonthOf(ME.n, live);
+    const tierName = currentTierName(miMejorMes);
+    const tierLeveled = detectTierUp(tierIndexDe(miMejorMes));
     el.innerHTML = `
       <div class="notifs">${notifCards()}</div>
       ${FRASE}
@@ -4499,7 +4518,7 @@ function renderHome(){
       ${officeStatsHTML(ME.f)}
       <div class="card">
         ${cLbl('layers','var(--morado)','Escalera de Rangos')}
-        <div class="rangos-wrap">${rangosHTML(live, ME.data&&ME.data.t3)}</div>
+        <div class="rangos-wrap">${rangosHTML(miMejorMes, live, ME.data&&ME.data.t3)}</div>
       </div>
       <div class="card">
         ${cLbl('target','var(--verde)','Metas del mes')}

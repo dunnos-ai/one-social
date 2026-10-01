@@ -1015,6 +1015,13 @@ function profileIdByName(name){
 
 const MESES_ORD = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
 
+// Meses ya cerrados, en orden. ESTA es la única lista que se toca al cerrar un mes: de aquí
+// salen los rankings, los KPIs, las etiquetas y el histórico de oficina. Antes estaba copiada
+// en seis lugares y al entrar un mes nuevo había que acordarse de los seis.
+const MESES_CERRADOS = ['ene','feb','mar','abr','may','jun','jul','ago','sep'];
+// Un renglón de meses en cero, para acumular sin que falte ninguna llave.
+function mesesEnCero(){ const o={t:0}; MESES_CERRADOS.forEach(k=>o[k]=0); return o; }
+
 // Un cambio de equipo no debe llevarse el historial del supervisor anterior: si en agosto
 // una venta se hizo bajo Fulana, en agosto cuenta para Fulana aunque hoy la persona ya esté
 // con Mengana. La tabla supervisor_historico guarda desde qué mes manda cada supervisor;
@@ -1068,7 +1075,7 @@ async function loadDirectoryFromSupabase(){
   (oficDirecta||[]).forEach(r=>{
     const nombre = r.offices ? r.offices.name : null;
     if(!nombre) return;
-    const acc = (OFFICE_MONTHLY_DIRECT[nombre] = OFFICE_MONTHLY_DIRECT[nombre] || {ene:0,feb:0,mar:0,abr:0,may:0,jun:0,jul:0,ago:0,t:0});
+    const acc = (OFFICE_MONTHLY_DIRECT[nombre] = OFFICE_MONTHLY_DIRECT[nombre] || mesesEnCero());
     acc[r.month] = r.total;
     acc.t += r.total;
   });
@@ -1160,7 +1167,7 @@ async function loadDirectoryFromSupabase(){
   });
 
   // Sup y GC se miden por el total de SU EQUIPO más su propia venta personal.
-  const MKEYS = ['ene','feb','mar','abr','may','jun','jul','ago'];
+  const MKEYS = MESES_CERRADOS;
   // Ojo: cada mes se suma con el supervisor que mandaba ESE mes, no con el de hoy.
   sups.forEach(s=>{
     MKEYS.forEach(k=>{
@@ -1249,8 +1256,15 @@ function personalBaseTotal(name){
 }
 const GARANTIA = 12;   // inscripciones/mes para "Garantía del Mes"
 const VIAJE = 60;      // inscripciones E-J acumulado para "Viaje de Campeones"
-const MES_ACTUAL = 'Septiembre 2026'; // mes que la app registra en vivo (E-Ago ya está cerrado/auditado en el portal)
-const APP_VERSION = '202609291236'; // se actualiza en cada despliegue — usada para forzar refresco automático
+// El mes que la app registra en vivo: el siguiente al último cerrado. Se calcula para que no
+// se quede viejo — al cerrar un mes basta con agregarlo a MESES_CERRADOS.
+const MES_ACTUAL = (()=>{
+  const sig = MESES_ORD[(MESES_ORD.indexOf(MESES_CERRADOS[MESES_CERRADOS.length-1]) + 1) % 12];
+  const anio = new Date().getFullYear() + (sig==='ene' ? 1 : 0);
+  const L = {ene:'Enero',feb:'Febrero',mar:'Marzo',abr:'Abril',may:'Mayo',jun:'Junio',jul:'Julio',ago:'Agosto',sep:'Septiembre',oct:'Octubre',nov:'Noviembre',dic:'Diciembre'};
+  return L[sig] + ' ' + anio;
+})();
+const APP_VERSION = '202610012305'; // se actualiza en cada despliegue — usada para forzar refresco automático
 
 const BADGES_DEF = [
   {id:'garantia', ico:'target', col:'var(--verde)', name:'Garantía', cond:(p)=> p.maxMonth >= GARANTIA},
@@ -1349,7 +1363,7 @@ function planStatsHistoricosRed(){
 }
 function historicoDistritalHTML(){
   if(!ME || !ME.ownedOffices || ME.ownedOffices.length<2) return '';
-  const MK = ['ene','feb','mar','abr','may','jun','jul','ago'];
+  const MK = MESES_CERRADOS;
   const desde = DESDE_MES_OFICINA[ME.data.id] || {};
   const combinado = {};
   MK.forEach(mes=>{
@@ -2116,7 +2130,7 @@ function monthlyDataOf(nombre){
 }
 function maxMonthOf(nombre, liveMonth){
   const md = monthlyDataOf(nombre);
-  const meses = md ? ['ene','feb','mar','abr','may','jun','jul','ago'].map(k=>md[k]||0) : [];
+  const meses = md ? MESES_CERRADOS.map(k=>md[k]||0) : [];
   return Math.max(liveMonth||0, ...meses, 0);
 }
 function eneJunOf(nombre){
@@ -2549,14 +2563,14 @@ function myRankInfo(){
 }
 
 // ── KPIs completos: por categoría (rep / gc / sup) y periodo (acumulado o mes) ──
-const MESES_KEY = ['ene','feb','mar','abr','may','jun','jul','ago'];
+const MESES_KEY = MESES_CERRADOS;
 // Rango de meses ya cerrados, en texto ("Enero–Agosto"). Se arma solo desde MESES_KEY
 // para que las etiquetas no se queden viejas cuando entra un mes nuevo.
 function rangoCerradoLbl(){
   const a = MESES_LBL[MESES_KEY[0]], b = MESES_LBL[MESES_KEY[MESES_KEY.length-1]];
   return a===b ? a : `${a}–${b}`;
 }
-const MESES_LBL = {total:'Acum.', ene:'Enero', feb:'Febrero', mar:'Marzo', abr:'Abril', may:'Mayo', jun:'Junio', jul:'Julio', ago:'Agosto'};
+const MESES_LBL = {total:'Acum.', ene:'Enero', feb:'Febrero', mar:'Marzo', abr:'Abril', may:'Mayo', jun:'Junio', jul:'Julio', ago:'Agosto', sep:'Septiembre'};
 const CAT_LBL = {rep:'Representantes', gc:'G. Comerciales', sup:'Supervisores', oficina:'Oficinas', distrital:'Distritales', divisional:'Divisionales', regional:'Regionales', portal:'Portal'};
 function sumField(reps, k){ return reps.reduce((s,r)=>s+(r[k]||0),0); }
 // Aplana las ventas PERSONALES de un líder a nivel de renglón (0 en los meses que no vendió).
@@ -2572,7 +2586,7 @@ function totalesPorMes(todos){
 // Ventas personales de Sup/GC/Distrital/Divisional/Regional también compiten en el ranking de Representante
 // (solo su renglón personal, nunca el total de su equipo).
 function repEntriesConPersonal(){
-  const MK = ['ene','feb','mar','abr','may','jun','jul','ago'];
+  const MK = MESES_CERRADOS;
   const desdePersonal = (list) => list.filter(x=>x.personal).map(x=>{
     const entry = {n:x.n, f:x.f, planHist:x.planHist||{A:0,B:0,C:0,D:0,E:0,F:0}};
     entry.t = MK.reduce((a,k)=>a+(x.personal[k]||0),0);
@@ -2586,7 +2600,7 @@ function officeCategoryList(){
   // los líderes multi-oficina (distrital/divisional/regional) NO se usan aquí, porque su
   // campo .f puede ser una lista de varias oficinas y crearía una "oficina" falsa con ese nombre compuesto.
   const offices = [...new Set([...SEED_REPS, ...SEED_SUP, ...SEED_GC].map(r=>r.f).filter(Boolean))];
-  const MK = ['ene','feb','mar','abr','may','jun','jul','ago'];
+  const MK = MESES_CERRADOS;
   const cubreOficina = (lider, franquicia) => (lider.oficinas||[lider.f]).includes(franquicia);
   return offices.map(f=>{
     const directo = OFFICE_MONTHLY_DIRECT[f];

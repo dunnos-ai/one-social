@@ -1021,6 +1021,10 @@ const MESES_ORD = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','
 const MESES_CERRADOS = ['ene','feb','mar','abr','may','jun','jul','ago','sep'];
 // Un renglón de meses en cero, para acumular sin que falte ninguna llave.
 function mesesEnCero(){ const o={t:0}; MESES_CERRADOS.forEach(k=>o[k]=0); return o; }
+// Pasa los meses cerrados de un renglón de la base al objeto que usa la app. Antes se
+// copiaban uno por uno en seis lugares y septiembre no llegaba al representante: el
+// ranking del mes salía vacío aunque el dato sí estuviera guardado.
+function mesesDe(mm){ const o={}; MESES_CERRADOS.forEach(k=> o[k] = mm[k]||0); return o; }
 
 // Un cambio de equipo no debe llevarse el historial del supervisor anterior: si en agosto
 // una venta se hizo bajo Fulana, en agosto cuenta para Fulana aunque hoy la persona ya esté
@@ -1120,7 +1124,7 @@ async function loadDirectoryFromSupabase(){
         sup:nameOf(p.supervisor_id), gc:nameOf(p.gc_id),
         gdt:nameOf(p.distrital_id), gdv:nameOf(p.divisional_id), gr:nameOf(p.regional_id),
         t3:p.t3_count||0, t5:p.t5_count||0, t10:p.t10_count||0,
-        ene:mm.ene||0, feb:mm.feb||0, mar:mm.mar||0, abr:mm.abr||0, may:mm.may||0, jun:mm.jun||0, jul:mm.jul||0, ago:mm.ago||0,
+        ...mesesDe(mm),
         officeId:p.office_id, planHist: PLAN_HIST_BY_PROFILE[p.id] || {A:0,B:0,C:0,D:0,E:0,F:0}
       });
     } else if(p.role==='sup'){
@@ -1128,33 +1132,33 @@ async function loadDirectoryFromSupabase(){
       sups.push({id:p.id, n:p.nombre, f, t:p.base_total_ej, officeId:p.office_id,
         oficinas: officesByProfile[p.id] && officesByProfile[p.id].length ? officesByProfile[p.id] : [f],
         sup:'', gc:nameOf(p.gc_id), gdt:nameOf(p.distrital_id), gdv:nameOf(p.divisional_id), gr:nameOf(p.regional_id),
-        personal:{ene:mm.ene||0, feb:mm.feb||0, mar:mm.mar||0, abr:mm.abr||0, may:mm.may||0, jun:mm.jun||0, jul:mm.jul||0, ago:mm.ago||0},
+        personal: mesesDe(mm),
         planHist: PLAN_HIST_BY_PROFILE[p.id] || {A:0,B:0,C:0,D:0,E:0,F:0}});
     } else if(p.role==='gc'){
       const mm = monthlyByProfile[p.id] || {};
       gcs.push({id:p.id, n:p.nombre, f, t:p.base_total_ej, officeId:p.office_id,
         oficinas: officesByProfile[p.id] && officesByProfile[p.id].length ? officesByProfile[p.id] : [f],
         sup:'', gc:'', gdt:nameOf(p.distrital_id), gdv:nameOf(p.divisional_id), gr:nameOf(p.regional_id),
-        personal:{ene:mm.ene||0, feb:mm.feb||0, mar:mm.mar||0, abr:mm.abr||0, may:mm.may||0, jun:mm.jun||0, jul:mm.jul||0, ago:mm.ago||0},
+        personal: mesesDe(mm),
         planHist: PLAN_HIST_BY_PROFILE[p.id] || {A:0,B:0,C:0,D:0,E:0,F:0}});
     } else if(p.role==='distrital'){
       lid.distrital.push(p.nombre); LIDER_IDS[p.nombre] = p.id;
       { const mm = monthlyByProfile[p.id] || {}; const misOficinas = officesByProfile[p.id] && officesByProfile[p.id].length ? officesByProfile[p.id] : [f];
         liderazgoPersonal.push({id:p.id, n:p.nombre, f:misOficinas.join(', '), oficinas:misOficinas,
         sup:'', gc:'', gdt:'', gdv:nameOf(p.divisional_id), gr:nameOf(p.regional_id),
-        personal:{ene:mm.ene||0, feb:mm.feb||0, mar:mm.mar||0, abr:mm.abr||0, may:mm.may||0, jun:mm.jun||0, jul:mm.jul||0, ago:mm.ago||0}}); }
+        personal: mesesDe(mm)}); }
     } else if(p.role==='divisional'){
       lid.divisional.push(p.nombre); LIDER_IDS[p.nombre] = p.id;
       { const mm = monthlyByProfile[p.id] || {}; const misOficinas = officesByProfile[p.id] && officesByProfile[p.id].length ? officesByProfile[p.id] : [f];
         liderazgoPersonal.push({id:p.id, n:p.nombre, f:misOficinas.join(', '), oficinas:misOficinas,
         sup:'', gc:'', gdt:'', gdv:'', gr:nameOf(p.regional_id),
-        personal:{ene:mm.ene||0, feb:mm.feb||0, mar:mm.mar||0, abr:mm.abr||0, may:mm.may||0, jun:mm.jun||0, jul:mm.jul||0, ago:mm.ago||0}}); }
+        personal: mesesDe(mm)}); }
     } else if(p.role==='regional'){
       lid.regional.push(p.nombre); LIDER_IDS[p.nombre] = p.id;
       { const mm = monthlyByProfile[p.id] || {}; const misOficinas = officesByProfile[p.id] && officesByProfile[p.id].length ? officesByProfile[p.id] : [f];
         liderazgoPersonal.push({id:p.id, n:p.nombre, f:misOficinas.join(', '), oficinas:misOficinas,
         sup:'', gc:'', gdt:'', gdv:'', gr:'',
-        personal:{ene:mm.ene||0, feb:mm.feb||0, mar:mm.mar||0, abr:mm.abr||0, may:mm.may||0, jun:mm.jun||0, jul:mm.jul||0, ago:mm.ago||0}}); }
+        personal: mesesDe(mm)}); }
     } else if(p.role==='franquiciatario'){
       const misOficinas = officesByProfile[p.id] || [];
       franqs.push({id:p.id, n:p.nombre, f:misOficinas.join(', '), oficinas:misOficinas});
@@ -1264,7 +1268,7 @@ const MES_ACTUAL = (()=>{
   const L = {ene:'Enero',feb:'Febrero',mar:'Marzo',abr:'Abril',may:'Mayo',jun:'Junio',jul:'Julio',ago:'Agosto',sep:'Septiembre',oct:'Octubre',nov:'Noviembre',dic:'Diciembre'};
   return L[sig] + ' ' + anio;
 })();
-const APP_VERSION = '202610012305'; // se actualiza en cada despliegue — usada para forzar refresco automático
+const APP_VERSION = '202610020046'; // se actualiza en cada despliegue — usada para forzar refresco automático
 
 const BADGES_DEF = [
   {id:'garantia', ico:'target', col:'var(--verde)', name:'Garantía', cond:(p)=> p.maxMonth >= GARANTIA},

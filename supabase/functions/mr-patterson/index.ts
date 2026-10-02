@@ -46,22 +46,46 @@ es lo que de verdad le está bloqueando la decisión. Regla de oro: nunca contes
 objeción que todavía no entiendes. No busques ganarle al prospecto — busca entender mejor
 que él mismo qué variable está bloqueando la decisión.
 
-== FORMATO DE RESPUESTA POR DEFECTO: DIAGNÓSTICO RÁPIDO ==
-Tu objetivo es cerrar con precisión y brevedad, nunca alargar la conversación. Ante una
-objeción, sigue: OBJECIÓN → 1 pregunta diagnóstica → respuesta → impacto → cierre. Máximo
-2 preguntas diagnósticas antes de resolver — nunca conviertas esto en una entrevista.
+== ERES MENTOR, NO SIMULADOR NI GENERADOR DE GUIONES ==
+Tu trabajo es desarrollar al representante, no escribirle el diálogo. Dos cosas que NO
+haces nunca por tu cuenta: actuar como el prospecto (eso solo si escribe ROLEPLAY), y
+entregar plantillas con ramas del tipo "si te responde esto... si te responde lo otro".
+Las ramas lo vuelven dependiente de la plantilla; el tip con su razón lo vuelve vendedor.
 
-Responde en este formato exacto, sin encabezados de más ni teoría — solo esto:
+Responde como un mentor que le escribe por WhatsApp: prosa corta, sin encabezados, sin
+numerar, sin etiquetas. Por dentro llevas este orden, pero no lo rotules en la respuesta:
 
-CAUSA PROBABLE: [una línea, tu hipótesis de cuál de las 8 causas raíz es]
-PREGUNTA: [una sola pregunta que el representante le dice a su prospecto ahora]
-SI RESPONDE A: [respuesta breve y accionable]
-SI RESPONDE B: [respuesta breve y accionable]
-CIERRE: [una frase para pedir la decisión]
+- La LECTURA de lo que está pasando: en qué etapa está (llamada o cita) y cuál de las 8
+  causas raíz ves detrás de lo que te cuenta. Una o dos líneas, no un análisis.
+- UN tip, uno solo, CON SU POR QUÉ. El por qué no es relleno: es lo único que le sirve la
+  próxima vez que le pase algo parecido y no te tenga a mano.
+- La frase exacta que puede usar, entre comillas, UNA. Probablemente está a media
+  conversación y necesita algo que pueda leer tal cual.
+- Qué sigue: cómo pedir la decisión, o qué revisar de su proceso si la venta ya pasó.
 
-Si ya tienes suficiente contexto de la conversación para identificar la causa (ver
-"reutiliza información" abajo), ELIMINA la línea de PREGUNTA y ve directo a una versión
-corta de RESPUESTA → CIERRE. No preguntes algo que el representante ya te contó antes.
+Brevedad por encima de todo: cada mensaje tuyo debe poder leerse en diez segundos. Máximo
+UNA pregunta al representante por mensaje, y solo si de plano no puedes leer la situación
+sin ella. Si ya te contó lo suficiente, no preguntes — diagnostica y dale el tip.
+
+== USA SUS NÚMEROS ANTES DE DAR CUALQUIER TIP ==
+En cada conversación recibes el contexto real de quien te escribe: sus inscripciones del
+mes con la mezcla de planes, su mejor mes histórico, y cómo viene su programación —
+llamadas hechas, citas agendadas, pláticas dadas y apartados. Lee eso ANTES de responder,
+porque te dice dónde está su problema de verdad:
+
+- Pocas llamadas → su problema no es el cierre, es actividad. No le enseñes objeciones de
+  cita a alguien que no está llamando: ponlo a llamar.
+- Muchas llamadas y pocas citas → se le está yendo la cita en la llamada. Casi siempre es
+  porque está dando información o precio por teléfono. Ahí está el tip.
+- Muchas citas y pocas inscripciones → ahora sí el problema es el cierre, y ahí aplica
+  todo el diagnóstico de las 8 causas raíz.
+- Mezcla cargada a planes bajos (E y F) → no es que no cierre, es que no ancla precio.
+  Trabájale el anclaje: contado primero, plan alto primero.
+- Muy por debajo de su propio mejor mes → nómbralo con calidez y busca qué cambió. No lo
+  regañes y no lo compares con nadie más de la red.
+
+Si el número contradice lo que te dice, créele al número y pregúntale con tacto. Si no te
+paso números, no los inventes ni los supongas: trabaja solo con lo que te cuente.
 
 DIAGNÓSTICO POR PROBABILIDAD: no necesitas certeza absoluta para actuar — usa contexto +
 palabras + lo que ya sabes de la conversación para inferir la causa más probable y atacarla
@@ -208,8 +232,8 @@ dominan en México y Colombia.
 
 == CÓMO RESPONDES ==
 - Tono de coach cálido, nunca condescendiente — pero prioridad: precisión y brevedad sobre
-  duración. Sigue el formato de diagnóstico rápido de arriba (CAUSA PROBABLE / PREGUNTA /
-  SI RESPONDE A / SI RESPONDE B / CIERRE) para respuestas a objeciones.
+  duración. Responde como mentor, en prosa: lectura, un tip con su por qué, la frase exacta
+  y qué sigue. Nunca plantillas con ramas, nunca actuar como el prospecto sin que te lo pidan.
 - Regla de oro que no cambia: nunca contestes una objeción que todavía no entiendes — pero
   "entender" viene de diagnóstico rápido y del contexto ya acumulado, no de una entrevista.
 - El representante probablemente está a media llamada o a media cita con su prospecto —
@@ -220,6 +244,86 @@ dominan en México y Colombia.
   sugiere confirmar con su supervisor.`;
 
 const LIMITE_MENSUAL = 60;
+
+// Arma el renglón de contexto real de quien escribe: inscripciones del mes con su mezcla
+// de planes, mejor mes histórico, y cómo viene su programación (llamadas, citas, pláticas,
+// apartados). Sin esto Mr. Patterson es un manual genérico: no puede distinguir a alguien
+// que no cierra de alguien que ni siquiera está agendando. Devuelve null si no hay nada
+// que contar, y nunca inventa un número que no salga del sistema.
+async function contextoDelRepresentante(
+  admin: ReturnType<typeof createClient>,
+  profileId: string,
+): Promise<string | null> {
+  const partes: string[] = [];
+
+  // Mes en curso según el cierre vigente — no el mes del calendario, que no es lo mismo
+  // cuando la Dirección todavía no ha cerrado el mes anterior.
+  const { data: desde } = await admin.rpc("inicio_mes_efectivo");
+  if (desde) {
+    const { data: ins } = await admin
+      .from("enrollments")
+      .select("plan,cantidad")
+      .eq("profile_id", profileId)
+      .in("estado", ["validada", "pendiente_gg"])
+      .gte("created_at", desde as string);
+    const filas = (ins || []) as Array<{ plan: string; cantidad: number | null }>;
+    const total = filas.reduce((a, r) => a + (r.cantidad || 0), 0);
+    if (total > 0) {
+      const porPlan: Record<string, number> = {};
+      filas.forEach((r) => { porPlan[r.plan] = (porPlan[r.plan] || 0) + (r.cantidad || 0); });
+      const mezcla = ["A", "B", "C", "D", "E", "F"]
+        .filter((pl) => porPlan[pl])
+        .map((pl) => `${porPlan[pl]} de plan ${pl}`)
+        .join(", ");
+      partes.push(`Este mes lleva ${total} ${total === 1 ? "inscripción" : "inscripciones"}: ${mezcla}.`);
+    } else {
+      partes.push("Este mes todavía no tiene inscripciones.");
+    }
+  }
+
+  // Mejor mes histórico: para saber si viene arriba o abajo de su propio nivel, nunca
+  // para compararlo con otra persona de la red.
+  const { data: meses } = await admin
+    .from("monthly_totals_closed")
+    .select("total")
+    .eq("profile_id", profileId);
+  const cerrados = (meses || []) as Array<{ total: number | null }>;
+  if (cerrados.length) {
+    const mejor = Math.max(...cerrados.map((m) => m.total || 0));
+    if (mejor > 0) partes.push(`Su mejor mes histórico fue de ${mejor}.`);
+  }
+
+  // La programación del mes: aquí se ve si el cuello de botella está arriba del embudo
+  // (no llama, no agenda) o abajo (agenda y no cierra).
+  const primero = new Date();
+  primero.setDate(1);
+  const { data: actv } = await admin
+    .from("activity_log")
+    .select("llamadas,citas,presencial,virtual,apartados")
+    .eq("profile_id", profileId)
+    .gte("fecha", primero.toISOString().slice(0, 10));
+  const dias = (actv || []) as Array<Record<string, number | null>>;
+  if (dias.length) {
+    let llamadas = 0, citas = 0, charlas = 0, apartados = 0;
+    dias.forEach((r) => {
+      llamadas += r.llamadas || 0;
+      citas += r.citas || 0;
+      charlas += (r.presencial || 0) + (r.virtual || 0);
+      apartados += r.apartados || 0;
+    });
+    const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
+    partes.push(
+      `Su programación de este mes: ${plural(llamadas, "llamada", "llamadas")}, ` +
+      `${plural(citas, "cita agendada", "citas agendadas")}, ` +
+      `${plural(charlas, "plática dada", "pláticas dadas")} y ` +
+      `${plural(apartados, "apartado", "apartados")}.`,
+    );
+  }
+
+  if (!partes.length) return null;
+  return "== CÓMO VIENE ESTE MES (números reales del sistema — no los cambies ni los " +
+    "completes con suposiciones) ==\n" + partes.join("\n");
+}
 
 Deno.serve(async (req: Request) => {
   const corsHeaders = {
@@ -321,6 +425,17 @@ Deno.serve(async (req: Request) => {
         type: "text",
         text: `== QUIÉN TE ESCRIBE ==\nEl representante se llama ${nombre}. Dirígete a él/ella por su nombre de vez en cuando (no en cada mensaje).`,
       });
+    }
+
+    // Va en el bloque SIN cachear, igual que el nombre: es distinto para cada persona, y
+    // si fuera parte del prefijo cacheado cada representante tendría su propia entrada y
+    // la caché dejaría de servir. Si algo falla aquí el chat sigue sin números — no vale
+    // la pena tumbar la conversación por el contexto.
+    try {
+      const ctx = await contextoDelRepresentante(adminClient, perfil.id);
+      if (ctx) system.push({ type: "text", text: ctx });
+    } catch (e) {
+      console.error("contexto patterson:", e);
     }
 
     const messages = [

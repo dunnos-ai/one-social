@@ -1025,6 +1025,10 @@ function mesesEnCero(){ const o={t:0}; MESES_CERRADOS.forEach(k=>o[k]=0); return
 // copiaban uno por uno en seis lugares y septiembre no llegaba al representante: el
 // ranking del mes salía vacío aunque el dato sí estuviera guardado.
 function mesesDe(mm){ const o={}; MESES_CERRADOS.forEach(k=> o[k] = mm[k]||0); return o; }
+// Acumulado de una persona = la suma de sus meses cerrados. Antes venía de base_total_ej,
+// un campo guardado que NO se actualiza al cerrar un mes: por eso septiembre no entraba al
+// ranking acumulado. Sumándolo de los meses ya no se puede volver a atrasar.
+function totalDeMeses(mm){ return MESES_CERRADOS.reduce((a,k)=> a + (mm[k]||0), 0); }
 
 // Un cambio de equipo no debe llevarse el historial del supervisor anterior: si en agosto
 // una venta se hizo bajo Fulana, en agosto cuenta para Fulana aunque hoy la persona ya esté
@@ -1120,7 +1124,7 @@ async function loadDirectoryFromSupabase(){
     if(p.role==='rep'){
       const mm = monthlyByProfile[p.id] || {};
       reps.push({
-        id:p.id, n:p.nombre, f, t:p.base_total_ej,
+        id:p.id, n:p.nombre, f, t:totalDeMeses(mm),
         sup:nameOf(p.supervisor_id), gc:nameOf(p.gc_id),
         gdt:nameOf(p.distrital_id), gdv:nameOf(p.divisional_id), gr:nameOf(p.regional_id),
         t3:p.t3_count||0, t5:p.t5_count||0, t10:p.t10_count||0,
@@ -1129,14 +1133,14 @@ async function loadDirectoryFromSupabase(){
       });
     } else if(p.role==='sup'){
       const mm = monthlyByProfile[p.id] || {};
-      sups.push({id:p.id, n:p.nombre, f, t:p.base_total_ej, officeId:p.office_id,
+      sups.push({id:p.id, n:p.nombre, f, t:totalDeMeses(mm), officeId:p.office_id,
         oficinas: officesByProfile[p.id] && officesByProfile[p.id].length ? officesByProfile[p.id] : [f],
         sup:'', gc:nameOf(p.gc_id), gdt:nameOf(p.distrital_id), gdv:nameOf(p.divisional_id), gr:nameOf(p.regional_id),
         personal: mesesDe(mm),
         planHist: PLAN_HIST_BY_PROFILE[p.id] || {A:0,B:0,C:0,D:0,E:0,F:0}});
     } else if(p.role==='gc'){
       const mm = monthlyByProfile[p.id] || {};
-      gcs.push({id:p.id, n:p.nombre, f, t:p.base_total_ej, officeId:p.office_id,
+      gcs.push({id:p.id, n:p.nombre, f, t:totalDeMeses(mm), officeId:p.office_id,
         oficinas: officesByProfile[p.id] && officesByProfile[p.id].length ? officesByProfile[p.id] : [f],
         sup:'', gc:'', gdt:nameOf(p.distrital_id), gdv:nameOf(p.divisional_id), gr:nameOf(p.regional_id),
         personal: mesesDe(mm),
@@ -1260,6 +1264,18 @@ function personalBaseTotal(name){
 }
 const GARANTIA = 12;   // inscripciones/mes para "Garantía del Mes"
 const VIAJE = 60;      // inscripciones E-J acumulado para "Viaje de Campeones"
+// Viaje de Campeones queda EXACTAMENTE como estaba, aunque el acumulado ya incluya
+// septiembre: su barra sigue midiendo lo cerrado hasta agosto más el mes en vivo. Ojo —
+// la barra y la insignia del mismo nombre no miden lo mismo (la insignia usa ene–jun);
+// viene así de antes y cambiarlo le toca a Dirección, no a mí.
+const VIAJE_HASTA = 'ago';
+function totalViaje(nombre, live){
+  const md = monthlyDataOf(nombre);
+  if(!md) return live||0;
+  const corte = MESES_CERRADOS.indexOf(VIAJE_HASTA);
+  const hasta = corte < 0 ? MESES_CERRADOS : MESES_CERRADOS.slice(0, corte+1);
+  return hasta.reduce((a,k)=>a+(md[k]||0),0) + (live||0);
+}
 // El mes que la app registra en vivo: el siguiente al último cerrado. Se calcula para que no
 // se quede viejo — al cerrar un mes basta con agregarlo a MESES_CERRADOS.
 const MES_ACTUAL = (()=>{
@@ -1268,7 +1284,7 @@ const MES_ACTUAL = (()=>{
   const L = {ene:'Enero',feb:'Febrero',mar:'Marzo',abr:'Abril',may:'Mayo',jun:'Junio',jul:'Julio',ago:'Agosto',sep:'Septiembre',oct:'Octubre',nov:'Noviembre',dic:'Diciembre'};
   return L[sig] + ' ' + anio;
 })();
-const APP_VERSION = '202610020046'; // se actualiza en cada despliegue — usada para forzar refresco automático
+const APP_VERSION = '202610031623'; // se actualiza en cada despliegue — usada para forzar refresco automático
 
 const BADGES_DEF = [
   {id:'garantia', ico:'target', col:'var(--verde)', name:'Garantía', cond:(p)=> p.maxMonth >= GARANTIA},
@@ -1343,7 +1359,7 @@ async function loadOficinaPlanVivo(){
     }
   }
 }
-// Suma el desglose por plan histórico (E-Ago) de todas las personas de una oficina —
+// Suma el desglose por plan histórico (meses cerrados) de todas las personas de una oficina —
 // reps + producción personal de sup/gc/líderes, igual criterio que officeCategoryList().
 function planStatsHistoricos(franquicia){
   const out = {A:0,B:0,C:0,D:0,E:0,F:0};
@@ -1490,7 +1506,7 @@ async function loadLive(){
 // ══════════ MINI RED SOCIAL: amistades + muro (Supabase real) ══════════
 const POST_MAXLEN = 130;
 let AMISTADES = [];   // {id, from, to, status:'pendiente'|'aceptada', ts}
-let PLAN_HIST_BY_PROFILE = {}; // {profile_id: {A:n,B:n,C:n,D:n,E:n,F:n}} — histórico E-Ago cerrado
+let PLAN_HIST_BY_PROFILE = {}; // {profile_id: {A:n,B:n,C:n,D:n,E:n,F:n}} — histórico de los meses cerrados
 let OFFICE_MONTHLY_DIRECT = {}; // {oficina: {ene:n,...,jul:n,t:n}} — totales de oficina directos desde Drive
 let DESDE_MES_OFICINA = {}; // {profile_id: {oficina: 'jul'|null}} — a partir de qué mes cuenta cada oficina para un líder multi-oficina
 let MURO = [];         // {id, perfilDueno, autor, texto, ts}
@@ -1846,7 +1862,7 @@ function renderProfile(name){
   const status = friendStatus(ME.n, name);
   const nat = repData ? (nationalRanking().findIndex(r=>r.n===name)+1 || null) : null;
   const ofic = repData ? (officeRanking(repData.f).findIndex(r=>r.n===name)+1 || null) : null;
-  // Rango EN VIVO del mes actual (distinto del histórico E-Ago de arriba) — misma fuente que
+  // Rango EN VIVO del mes actual (distinto del histórico cerrado de arriba) — misma fuente que
   // usa la pestaña Ranking, solo que aquí se busca la posición de ESTA persona específica.
   const catVivaDePersona = ['rep','sup','gc'].includes(identity.role) ? identity.role : null;
   if(catVivaDePersona && !RANKING_VIVO_CACHE[catVivaDePersona]){
@@ -1893,7 +1909,7 @@ function renderProfile(name){
         ${isMe ? `<label class="pm-photo-btn">${ico('camera','var(--on-mint)',13)}<input type="file" accept="image/*" style="display:none" onchange='handlePhotoUpload(this,${nameJson})'></label>` : ''}
         ${extra.foto ? `<img src="${extra.foto}" class="pm-avatar-img">` : `<div class="pm-avatar">${initials}</div>`}
         <div class="pm-stats">
-          <div class="pm-stat"><div class="pm-stat-v">${baseTotal}</div><div class="pm-stat-l">Total E–Ago</div></div>
+          <div class="pm-stat"><div class="pm-stat-v">${baseTotal}</div><div class="pm-stat-l">Total ${rangoCerradoCorto()}</div></div>
           <div class="pm-stat"><div class="pm-stat-v">#${nat||'–'}</div><div class="pm-stat-l">Nacional</div></div>
           ${catVivaDePersona ? `<div class="pm-stat"><div class="pm-stat-v">#${rangoVivo||'–'}</div><div class="pm-stat-l">En vivo (mes)</div></div>` : ''}
           <div class="pm-stat"><div class="pm-stat-v">${won.length}/${BADGES_DEF.length}</div><div class="pm-stat-l">Insignias</div></div>
@@ -2201,10 +2217,14 @@ async function buildMeFromAuthUser(userId){
   else if(prof.role==='sup') data = SEED_SUP.find(r=>r.id===prof.id);
   else if(prof.role==='gc') data = SEED_GC.find(r=>r.id===prof.id);
   else if(prof.role==='franquiciatario') data = FRANQUICIATARIOS.find(r=>r.id===prof.id);
-  if(!data) data = {id:prof.id, n:prof.nombre, f, t:prof.base_total_ej, oficinas:misOficinas};
+  // Mi acumulado también sale de mis meses cerrados. Solo quien no aparece en ninguna lista
+  // (fundador, franquiciatario) se queda con el campo guardado, porque no tiene meses propios.
+  const misMeses = monthlyDataOf(prof.nombre);
+  const miTotal = misMeses ? totalDeMeses(misMeses) : (prof.base_total_ej || 0);
+  if(!data) data = {id:prof.id, n:prof.nombre, f, t:miTotal, oficinas:misOficinas};
   if(!data.oficinas) data.oficinas = misOficinas; // asegura que siempre esté disponible, aunque el rol no sea franquiciatario
   const roleLbl = prof.titulo_especial || roleLabelFor(prof.role);
-  return { n:prof.nombre, f, t:prof.base_total_ej, role: appRoleFor(prof.role), roleLbl, data, ownedOffices: misOficinas, veTodaLaRed: !!prof.ve_toda_la_red };
+  return { n:prof.nombre, f, t:miTotal, role: appRoleFor(prof.role), roleLbl, data, ownedOffices: misOficinas, veTodaLaRed: !!prof.ve_toda_la_red };
 }
 
 // ══════════ PERSON DIRECTORY ══════════
@@ -2573,6 +2593,12 @@ const MESES_KEY = MESES_CERRADOS;
 function rangoCerradoLbl(){
   const a = MESES_LBL[MESES_KEY[0]], b = MESES_LBL[MESES_KEY[MESES_KEY.length-1]];
   return a===b ? a : `${a}–${b}`;
+}
+// Igual pero corto ("E–Sep"), para los lugares donde no cabe "Enero–Septiembre".
+function rangoCerradoCorto(){
+  const a = MESES_KEY[0], b = MESES_KEY[MESES_KEY.length-1];
+  const fin = b.charAt(0).toUpperCase() + b.slice(1);
+  return a===b ? fin : `${(MESES_LBL[a]||a).charAt(0).toUpperCase()}–${fin}`;
 }
 const MESES_LBL = {total:'Acum.', ene:'Enero', feb:'Febrero', mar:'Marzo', abr:'Abril', may:'Mayo', jun:'Junio', jul:'Julio', ago:'Agosto', sep:'Septiembre'};
 const CAT_LBL = {rep:'Representantes', gc:'G. Comerciales', sup:'Supervisores', oficina:'Oficinas', distrital:'Distritales', divisional:'Divisionales', regional:'Regionales', portal:'Portal'};
@@ -3040,7 +3066,7 @@ function proyeccionCardHTML(){
     <div class="hero-stats" style="border-top:none;margin-top:0;padding-top:0;">
       <div class="hstat"><div class="hstat-v">${d.live}</div><div class="hstat-l">logrado (día ${d.diasTrans}/${d.diasTotales})</div></div>
       <div class="hstat"><div class="hstat-v" style="color:var(--morado)">${d.proy}</div><div class="hstat-l">proyectado</div></div>
-      <div class="hstat"><div class="hstat-v">${d.anual}</div><div class="hstat-l">total E–Ago proyectado</div></div>
+      <div class="hstat"><div class="hstat-v">${d.anual}</div><div class="hstat-l">total ${rangoCerradoCorto()} proyectado</div></div>
     </div>
     <div class="proy-tip">${tip}</div>
     <div class="proy-simulador">
@@ -4504,7 +4530,8 @@ function renderHome(){
     const {nat, ofic} = myRankInfo();
     const eTotal = ME.t + live;
     const garPct = Math.min(100, Math.round(live/GARANTIA*100));
-    const viajePct = Math.min(100, Math.round(eTotal/VIAJE*100));
+    const viajeTotal = totalViaje(ME.n, live);
+    const viajePct = Math.min(100, Math.round(viajeTotal/VIAJE*100));
     const wonAuto = BADGES_DEF.filter(b=> b.cond({liveMonth:live, baseTotal:ME.t, isLeader:false, t3:ME.data&&ME.data.t3, t5:ME.data&&ME.data.t5, t10:ME.data&&ME.data.t10, maxMonth:maxMonthOf(ME.n,live), eneJun:eneJunOf(ME.n)}, nat, ofic));
     const manualIds = BADGES_MANUALES[ME.n] || [];
     const won = [...new Set([...wonAuto, ...BADGES_DEF.filter(b=>manualIds.includes(b.id))])];
@@ -4523,13 +4550,13 @@ function renderHome(){
         <div class="hero-txt">
           <div class="hero-lbl">${MES_ACTUAL}</div>
           <div class="hero-num"><span class="cu" id="heroLiveVal">0</span><small> validadas</small></div>
-          <div class="hero-sub">${pending>0?`<b>${pending}</b> en revisión · `:''}E–Ago 2026: <b>${ME.t}</b> inscripciones · #${nat||'–'} nacional</div>
+          <div class="hero-sub">${pending>0?`<b>${pending}</b> en revisión · `:''}${rangoCerradoCorto()}: <b>${ME.t}</b> inscripciones · #${nat||'–'} nacional</div>
         </div>
       </div>
       <div class="card" style="border-color:var(--role-c)">
         <div class="hero-stats" style="border-top:none;margin-top:0;padding-top:0;">
           <div class="hstat"><div class="hstat-v">#${ofic||'–'}</div><div class="hstat-l">en ${ME.f}</div></div>
-          <div class="hstat"><div class="hstat-v">${eTotal}</div><div class="hstat-l">total E–Ago + validado</div></div>
+          <div class="hstat"><div class="hstat-v">${eTotal}</div><div class="hstat-l">total ${rangoCerradoCorto()} + validado</div></div>
           <div class="hstat"><div class="hstat-v">${won.length}/${BADGES_DEF.length}</div><div class="hstat-l">insignias</div></div>
         </div>
       </div>
@@ -4545,8 +4572,8 @@ function renderHome(){
           <div class="prog-track"><div class="prog-fill ${live>=GARANTIA?'done':'wip'}" style="width:${garPct}%"></div></div>
         </div>
         <div class="prog-row">
-          <div class="prog-head"><span class="prog-title">🚀 Viaje de Campeones (E–Ago)</span><span class="prog-val">${eTotal}/${VIAJE}</span></div>
-          <div class="prog-track"><div class="prog-fill ${eTotal>=VIAJE?'done':'wip'}" style="width:${viajePct}%"></div></div>
+          <div class="prog-head"><span class="prog-title">🚀 Viaje de Campeones (E–Ago)</span><span class="prog-val">${viajeTotal}/${VIAJE}</span></div>
+          <div class="prog-track"><div class="prog-fill ${viajeTotal>=VIAJE?'done':'wip'}" style="width:${viajePct}%"></div></div>
         </div>
       </div>
       ${proyeccionCardHTML()}
@@ -4595,14 +4622,14 @@ function renderHome(){
         <div class="hero-txt">
           <div class="hero-lbl">${MES_ACTUAL} · Mi equipo</div>
           <div class="hero-num"><span class="cu" id="heroLiveVal">0</span><small> validadas</small></div>
-          <div class="hero-sub">${teamPending>0?`<b>${teamPending}</b> en revisión · `:''}${team.length} personas · E–Ago: <b>${teamBase}</b></div>
+          <div class="hero-sub">${teamPending>0?`<b>${teamPending}</b> en revisión · `:''}${team.length} personas · ${rangoCerradoCorto()}: <b>${teamBase}</b></div>
         </div>
       </div>
       <div class="card" style="border-color:var(--role-c)">
         <div class="hero-stats" style="border-top:none;margin-top:0;padding-top:0;">
           <div class="hstat"><div class="hstat-v">${garantias}</div><div class="hstat-l">con Garantía</div></div>
           <div class="hstat"><div class="hstat-v">${team.length}</div><div class="hstat-l">representantes</div></div>
-          <div class="hstat"><div class="hstat-v">${ME.t!=null?ME.t:'–'}</div><div class="hstat-l">tu total E–Ago</div></div>
+          <div class="hstat"><div class="hstat-v">${ME.t!=null?ME.t:'–'}</div><div class="hstat-l">tu total ${rangoCerradoCorto()}</div></div>
         </div>
       </div>
       <div class="card">

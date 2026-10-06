@@ -1036,6 +1036,14 @@ function totalDeMeses(mm){ return MESES_CERRADOS.reduce((a,k)=> a + (mm[k]||0), 
 // profiles.supervisor_id sigue siendo el de HOY, que es el que vale para aprobar y para el
 // mes en vivo. Un mes anterior a la primera entrada no cuenta para nadie: si hay historial,
 // tiene que estar completo, porque caer en "el de hoy" sería justo el error que esto arregla.
+// Si un líder toma una oficina a medio año, esa oficina le cuenta desde el mes que dice
+// profile_offices.desde_mes y no desde enero — así un cambio de mando no le reescribe el
+// historial a nadie. Sin fecha de inicio, cuenta siempre.
+function cuentaDesde(liderId, oficina, mes){
+  const desde = (DESDE_MES_OFICINA[liderId]||{})[oficina];
+  if(!desde) return true;
+  return MESES_ORD.indexOf(mes) >= MESES_ORD.indexOf(desde);
+}
 function supDelMes(rep, mes){
   const hist = SUP_HIST[rep.id];
   if(!hist || !hist.length) return rep.sup;
@@ -1183,9 +1191,19 @@ async function loadDirectoryFromSupabase(){
     });
     s.t = MKEYS.reduce((acc,k)=>acc+s[k],0);
   });
+  // Una venta cuenta hacia arriba para TODOS los niveles encima de quien la hizo. Al
+  // gerente comercial le faltaba la mitad: sumaba solo representantes y nunca las ventas
+  // personales de sus supervisores — 370 inscripciones de la red no le contaban a nadie.
+  // De un supervisor se toma su renglón PERSONAL, no su total de equipo: sus
+  // representantes ya se cuentan aquí por separado, y sumar las dos cosas los duplicaría.
   gcs.forEach(g=>{
-    const team = reps.filter(r=>r.gc===g.n);
-    MKEYS.forEach(k=> g[k] = team.reduce((acc,r)=>acc+(r[k]||0),0) + (g.personal[k]||0));
+    const miGente = [...reps, ...sups].filter(x=> norm(x.gc)===norm(g.n));
+    MKEYS.forEach(k=>{
+      g[k] = miGente.reduce((acc,x)=>{
+        if(!cuentaDesde(g.id, x.f, k)) return acc;
+        return acc + (x.personal ? (x.personal[k]||0) : (x[k]||0));
+      }, 0) + (g.personal[k]||0);
+    });
     g.t = MKEYS.reduce((acc,k)=>acc+g[k],0);
   });
 
@@ -1284,7 +1302,7 @@ const MES_ACTUAL = (()=>{
   const L = {ene:'Enero',feb:'Febrero',mar:'Marzo',abr:'Abril',may:'Mayo',jun:'Junio',jul:'Julio',ago:'Agosto',sep:'Septiembre',oct:'Octubre',nov:'Noviembre',dic:'Diciembre'};
   return L[sig] + ' ' + anio;
 })();
-const APP_VERSION = '202610031623'; // se actualiza en cada despliegue — usada para forzar refresco automático
+const APP_VERSION = '202610062350'; // se actualiza en cada despliegue — usada para forzar refresco automático
 
 const BADGES_DEF = [
   {id:'garantia', ico:'target', col:'var(--verde)', name:'Garantía', cond:(p)=> p.maxMonth >= GARANTIA},
@@ -2661,8 +2679,17 @@ function liderazgoCategoryList(nivel, campo){
     // Las ventas PERSONALES del propio líder cuentan igual que las de su equipo.
     const yoMismo = LIDERAZGO_PERSONAL.find(l=> l.n===name);
     const propio = yoMismo ? [{t:yoMismo.t, ...yoMismo.personal, f:yoMismo.f}] : [];
+    // Misma regla que en el gerente comercial: si el líder tomó esa oficina a medio año,
+    // le cuenta desde ese mes. Antes la fecha de inicio solo se respetaba en la pantalla
+    // de histórico, no en los rankings, así que un cambio de mando le daba el año entero.
+    const idLider = LIDER_IDS[name];
+    const conFecha = (x)=>{
+      const o = {f:x.f};
+      MESES_KEY.forEach(k=> o[k] = cuentaDesde(idLider, x.f, k) ? (x[k]||0) : 0);
+      return o;
+    };
     const todos = [...reps, ...propio, ...supsAqui.map(s=>({...mesesPersonalDe(s), f:s.f})),
-      ...gcsAqui.map(g=>({...mesesPersonalDe(g), f:g.f}))];
+      ...gcsAqui.map(g=>({...mesesPersonalDe(g), f:g.f}))].map(conFecha);
     const oficinasEquipo = [...new Set(todos.map(r=>r.f))].join(', ');
     const oficinas = oficinasEquipo || (yoMismo ? yoMismo.f : '') || 'Sin equipo asignado';
     return {n:name, f:oficinas, ...totalesPorMes(todos)};

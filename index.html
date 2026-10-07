@@ -325,6 +325,7 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;overscrol
 .fb-edit{background:var(--s2);border:1px solid var(--line);color:var(--t2);}
 .fb-pending{background:var(--s2);color:var(--t3);}
 .fb-friends{background:var(--mint-w);border:1px solid var(--mint-b);color:var(--mint);}
+.fb-reactivar{background:transparent;border:1px solid var(--gold);color:var(--gold);margin-left:8px;}
 .friend-req-actions{display:flex;gap:8px;justify-content:center;position:relative;}
 .fb-accept{background:var(--mint);color:var(--on-mint);}
 .fb-reject{background:var(--s3);color:var(--t2);padding:11px 18px;border-radius:999px;border:none;font-weight:700;cursor:pointer;}
@@ -1066,7 +1067,7 @@ async function loadDirectoryFromSupabase(){
   // tabla y pesan 1.4 MB entre todas — el 96% de esta consulta— pero sólo se ven al abrir
   // un perfil. Pedirlas aquí obligaba a cada persona a bajarlas TODAS en cada arranque.
   // Se cargan una por una en cargarFoto(), cuando de verdad se necesitan.
-  const { data: profiles, error: errP } = await sb.from('profiles').select('id,auth_user_id,nombre,office_id,role,supervisor_id,gc_id,distrital_id,divisional_id,regional_id,base_total_ej,t3_count,t5_count,t10_count,bio,edad,username,active,manual_block,auto_deactivated,created_at,instagram,tiktok,facebook,threads,fecha_nacimiento,titulo_especial,ve_toda_la_red,last_seen_at');
+  const { data: profiles, error: errP } = await sb.from('profiles').select('id,auth_user_id,nombre,office_id,role,supervisor_id,gc_id,distrital_id,divisional_id,regional_id,base_total_ej,t3_count,t5_count,t10_count,bio,edad,username,active,manual_block,auto_deactivated,reactivado_at,created_at,instagram,tiktok,facebook,threads,fecha_nacimiento,titulo_especial,ve_toda_la_red,last_seen_at');
   if(errP){ console.error('profiles', errP); return false; }
 
   const { data: monthly, error: errM } = await sb.from('monthly_totals_closed').select('profile_id,month,total');
@@ -1136,6 +1137,7 @@ async function loadDirectoryFromSupabase(){
         sup:nameOf(p.supervisor_id), gc:nameOf(p.gc_id),
         gdt:nameOf(p.distrital_id), gdv:nameOf(p.divisional_id), gr:nameOf(p.regional_id),
         t3:p.t3_count||0, t5:p.t5_count||0, t10:p.t10_count||0,
+        creado:p.created_at, reactivadoAt:p.reactivado_at,
         ...mesesDe(mm),
         officeId:p.office_id, planHist: PLAN_HIST_BY_PROFILE[p.id] || {A:0,B:0,C:0,D:0,E:0,F:0}
       });
@@ -1302,7 +1304,7 @@ const MES_ACTUAL = (()=>{
   const L = {ene:'Enero',feb:'Febrero',mar:'Marzo',abr:'Abril',may:'Mayo',jun:'Junio',jul:'Julio',ago:'Agosto',sep:'Septiembre',oct:'Octubre',nov:'Noviembre',dic:'Diciembre'};
   return L[sig] + ' ' + anio;
 })();
-const APP_VERSION = '202610071209'; // se actualiza en cada despliegue — usada para forzar refresco automático
+const APP_VERSION = '202610071539'; // se actualiza en cada despliegue — usada para forzar refresco automático
 
 const BADGES_DEF = [
   {id:'garantia', ico:'target', col:'var(--verde)', name:'Garantía', cond:(p)=> p.maxMonth >= GARANTIA},
@@ -1908,6 +1910,18 @@ function renderProfile(name){
   else if(status==='pendiente_recibida') friendBtn = `<div class="friend-req-actions"><button class="friend-btn fb-accept" onclick='respondFriendRequest(${JSON.stringify(name)},true)'>Aceptar</button><button class="friend-btn fb-reject" onclick='respondFriendRequest(${JSON.stringify(name)},false)'>✕</button></div>`;
   else friendBtn = `<button class="friend-btn fb-friends" onclick='removeFriend(${JSON.stringify(name)})'>✓ Amigos</button>`;
 
+  // Si la regla de inactividad dejó fuera a esta persona y yo estoy por encima de ella,
+  // puedo devolverle el acceso. Quién puede de verdad lo valida la base de datos
+  // (reactivar_representante); aquí solo se decide si vale la pena mostrar el botón.
+  let reactivarBtn = '';
+  if(!isMe && identity.role==='rep' && isLeaderRole()){
+    const repData = SEED_REPS.find(r=>r.n===name);
+    if(repData && isRepDeactivated({role:'rep', n:name}, repData.creado, repData.reactivadoAt)){
+      reactivarBtn = `<button class="friend-btn fb-reactivar" onclick='reactivarAcceso(${JSON.stringify(name)})'>`
+        + `${ico('lock','currentColor',14)} Reactivar acceso</button>`;
+    }
+  }
+
   const posts = wallPosts(name);
   const nameJson = JSON.stringify(name);
   const extra = myExtra(name);
@@ -1940,7 +1954,7 @@ function renderProfile(name){
         ${extra.bio ? `<div class="pm-bio">${escapeHTML(extra.bio)}</div>` : ''}
         ${socialLinksHTML ? `<div class="pm-social-row">${socialLinksHTML}</div>` : ''}
       </div>
-      <div class="pm-actions">${friendBtn}</div>
+      <div class="pm-actions">${friendBtn}${reactivarBtn}</div>
       <div id="profileEditBox" class="profile-edit-box" style="display:none">
         <textarea id="editBio" maxlength="${BIO_MAXLEN}" placeholder="Cuéntanos algo sobre ti...">${escapeHTML(extra.bio||'')}</textarea>
         <input id="editFechaNac" type="date" placeholder="Fecha de nacimiento" value="${extra.fechaNac||''}" style="color-scheme:dark;">
@@ -2415,15 +2429,28 @@ function marcarVisto(authUserId){
     .eq('auth_user_id', authUserId)
     .then(({error}) => { if(error) console.error('last_seen_at', error); });
 }
-function isRepDeactivated(perfil, createdAt){
+// Dos correcciones sobre la versión anterior:
+//  - El MES EN CURSO cuenta. Antes solo miraba los dos meses previos, así que alguien que
+//    vendía este mes seguía quedando fuera. Vender hoy no es estar inactivo.
+//  - El reloj arranca en la reactivación, no solo en el alta. Un líder puede devolverle el
+//    acceso a alguien (reactivar_representante) y eso le da el mismo margen que a una
+//    cuenta nueva, que es lo que el propio mensaje de la app le prometía a la persona.
+function inicioDelReloj(createdAt, reactivadoAt){
+  const a = createdAt ? new Date(createdAt).getTime() : 0;
+  const b = reactivadoAt ? new Date(reactivadoAt).getTime() : 0;
+  return Math.max(a, b) || null;
+}
+function isRepDeactivated(perfil, createdAt, reactivadoAt){
   if(!perfil || perfil.role!=='rep') return false; // regla exclusiva de representantes
   const DOS_MESES_MS = 1000*60*60*24*60;
-  if(!createdAt || (Date.now()-createdAt) < DOS_MESES_MS) return false; // cuenta muy nueva, no se evalúa aún
+  const inicio = inicioDelReloj(createdAt, reactivadoAt);
+  if(!inicio || (Date.now()-inicio) < DOS_MESES_MS) return false; // cuenta nueva o recién reactivada
   const now = new Date();
   const map = repMonthlyValidated(perfil.n);
+  const mesActual   = map[monthKey(now)] || 0;
   const mesAnterior = map[monthKey(new Date(now.getFullYear(), now.getMonth()-1, 1))] || 0;
   const hace2Meses  = map[monthKey(new Date(now.getFullYear(), now.getMonth()-2, 1))] || 0;
-  return mesAnterior===0 && hace2Meses===0;
+  return mesActual===0 && mesAnterior===0 && hace2Meses===0;
 }
 
 async function doCreateAccount(){
@@ -2471,7 +2498,7 @@ async function doLogin(){
   const { data, error } = await sb.auth.signInWithPassword({ email: authEmail(username), password: pass });
   if(error){ errEl.textContent = 'Usuario o contraseña incorrectos.'; return; }
 
-  const { data: profRow } = await sb.from('profiles').select('manual_block,created_at,role,last_seen_at').eq('auth_user_id', data.user.id).single();
+  const { data: profRow } = await sb.from('profiles').select('manual_block,created_at,role,last_seen_at,reactivado_at').eq('auth_user_id', data.user.id).single();
   if(profRow && profRow.manual_block){
     errEl.textContent='Tu acceso fue desactivado por tu Gerencia. Contacta a tu oficina.';
     await sb.auth.signOut();
@@ -2488,7 +2515,7 @@ async function doLogin(){
   marcarVisto(data.user.id);
 
   await loadLive(); // inscripciones reales, para evaluar la regla de inactividad con datos frescos
-  if(profRow && profRow.role==='rep' && isRepDeactivated({role:'rep', n:perfil.n}, new Date(profRow.created_at).getTime())){
+  if(profRow && profRow.role==='rep' && isRepDeactivated({role:'rep', n:perfil.n}, profRow.created_at, profRow.reactivado_at)){
     await sb.from('profiles').update({auto_deactivated:true}).eq('auth_user_id', data.user.id);
     errEl.textContent='Tu usuario fue desactivado: 2 meses sin inscripciones. Tu historial sigue intacto — contacta a tu Supervisor.';
     await sb.auth.signOut();
@@ -2544,6 +2571,19 @@ function getMyTeam(){
     return SEED_REPS;
   }
   return [];
+}
+// Le devuelve el acceso a un representante que la regla de inactividad dejó fuera. La base
+// valida que de verdad esté en mi cadena; si no, responde con el porqué.
+async function reactivarAcceso(nombre){
+  const rep = SEED_REPS.find(r=>r.n===nombre);
+  if(!rep) return;
+  if(!confirm('¿Devolverle el acceso a '+nombre+'? Tendrá dos meses para registrar una inscripción antes de que la regla vuelva a aplicar.')) return;
+  const { data, error } = await sb.rpc('reactivar_representante', { p_profile_id: rep.id });
+  if(error){ alert(error.message || 'No se pudo reactivar.'); return; }
+  rep.reactivadoAt = data;
+  await refrescarDirectorio(true);
+  renderProfile(nombre);
+  alert(nombre + ' ya puede entrar.');
 }
 function isLeaderRole(){ return ME && (ME.role==='sup' || ME.role==='gc' || ME.role==='lead' || ME.role==='franq' || ME.role==='general'); }
 // Devuelve los reps de las oficinas que la persona posee como dueña, sin importar su rol principal.
@@ -5184,12 +5224,12 @@ window.addEventListener('resize', ajustarScrollLogoLogin);
   if(!ok) return;
   const perfil = await buildMeFromAuthUser(session.user.id);
   if(!perfil){ await sb.auth.signOut(); return; }
-  const { data: profRow } = await sb.from('profiles').select('manual_block,created_at,role,last_seen_at').eq('auth_user_id', session.user.id).single();
+  const { data: profRow } = await sb.from('profiles').select('manual_block,created_at,role,last_seen_at,reactivado_at').eq('auth_user_id', session.user.id).single();
   if(profRow && profRow.manual_block){ await sb.auth.signOut(); return; }
   if(profRow && llevaInactivo(profRow.last_seen_at)){ await sb.auth.signOut(); return; }
   marcarVisto(session.user.id);
   await loadLive();
-  if(profRow && profRow.role==='rep' && isRepDeactivated({role:'rep', n:perfil.n}, new Date(profRow.created_at).getTime())){
+  if(profRow && profRow.role==='rep' && isRepDeactivated({role:'rep', n:perfil.n}, profRow.created_at, profRow.reactivado_at)){
     await sb.from('profiles').update({auto_deactivated:true}).eq('auth_user_id', session.user.id);
     await sb.auth.signOut();
     return;

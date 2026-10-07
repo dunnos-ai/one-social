@@ -1304,7 +1304,7 @@ const MES_ACTUAL = (()=>{
   const L = {ene:'Enero',feb:'Febrero',mar:'Marzo',abr:'Abril',may:'Mayo',jun:'Junio',jul:'Julio',ago:'Agosto',sep:'Septiembre',oct:'Octubre',nov:'Noviembre',dic:'Diciembre'};
   return L[sig] + ' ' + anio;
 })();
-const APP_VERSION = '202610071539'; // se actualiza en cada despliegue — usada para forzar refresco automático
+const APP_VERSION = '202610071939'; // se actualiza en cada despliegue — usada para forzar refresco automático
 
 const BADGES_DEF = [
   {id:'garantia', ico:'target', col:'var(--verde)', name:'Garantía', cond:(p)=> p.maxMonth >= GARANTIA},
@@ -1408,9 +1408,11 @@ function historicoDistritalHTML(){
   const combinado = {};
   MK.forEach(mes=>{
     combinado[mes] = ME.ownedOffices.reduce((sum, ofic)=>{
-      const desdeMes = desde[ofic];
-      const cuentaEsteMs = !desdeMes || MK.indexOf(mes) >= MK.indexOf(desdeMes);
-      if(!cuentaEsteMs) return sum;
+      // Misma regla que los totales y los rankings: cuentaDesde() compara contra los 12
+      // meses del año. Antes esto comparaba contra la lista de meses CERRADOS, así que una
+      // oficina tomada en un mes que todavía no cierra daba índice -1 y acababa contando
+      // en todos los meses — justo lo contrario de lo que significa la fecha de inicio.
+      if(!cuentaDesde(ME.data.id, ofic, mes)) return sum;
       return sum + (OFFICE_MONTHLY_DIRECT[ofic]?.[mes] || 0);
     }, 0);
   });
@@ -2658,7 +2660,7 @@ function rangoCerradoCorto(){
   const fin = b.charAt(0).toUpperCase() + b.slice(1);
   return a===b ? fin : `${(MESES_LBL[a]||a).charAt(0).toUpperCase()}–${fin}`;
 }
-const MESES_LBL = {total:'Acum.', ene:'Enero', feb:'Febrero', mar:'Marzo', abr:'Abril', may:'Mayo', jun:'Junio', jul:'Julio', ago:'Agosto', sep:'Septiembre'};
+const MESES_LBL = {total:'Acum.', ene:'Enero', feb:'Febrero', mar:'Marzo', abr:'Abril', may:'Mayo', jun:'Junio', jul:'Julio', ago:'Agosto', sep:'Septiembre', oct:'Octubre', nov:'Noviembre', dic:'Diciembre'};
 const CAT_LBL = {rep:'Representantes', gc:'G. Comerciales', sup:'Supervisores', oficina:'Oficinas', distrital:'Distritales', divisional:'Divisionales', regional:'Regionales', portal:'Portal'};
 function sumField(reps, k){ return reps.reduce((s,r)=>s+(r[k]||0),0); }
 // Aplana las ventas PERSONALES de un líder a nivel de renglón (0 en los meses que no vendió).

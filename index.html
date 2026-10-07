@@ -983,6 +983,7 @@ let SUP_HIST = {};
 // su puesto, su equipo y sus números, sólo deja de autorizar. Distrital y divisional
 // siguen viendo lo mismo que antes, para que nada se atore si el aprobador no entra.
 let APROBADOR_OFICINA = {};
+let APROBADOR_PERSONA = {}; // {nombre: quién autoriza SUS inscripciones} — gana sobre el de la oficina
 let FRANQUICIATARIOS = []; // dueños de oficina: {id, n, f (oficinas separadas por coma), oficinas:[...]}
 let GERENCIA_GENERAL = []; // Gerente(s) General(es): {id, n, f:'Toda la red', oficinas:[...todas]}
 let LIDERAZGO_PERSONAL = []; // Distritales/Divisionales/Regionales que venden directo: {id, n, f, personal:{ene..jul}}
@@ -1067,7 +1068,7 @@ async function loadDirectoryFromSupabase(){
   // tabla y pesan 1.4 MB entre todas — el 96% de esta consulta— pero sólo se ven al abrir
   // un perfil. Pedirlas aquí obligaba a cada persona a bajarlas TODAS en cada arranque.
   // Se cargan una por una en cargarFoto(), cuando de verdad se necesitan.
-  const { data: profiles, error: errP } = await sb.from('profiles').select('id,auth_user_id,nombre,office_id,role,supervisor_id,gc_id,distrital_id,divisional_id,regional_id,base_total_ej,t3_count,t5_count,t10_count,bio,edad,username,active,manual_block,auto_deactivated,reactivado_at,created_at,instagram,tiktok,facebook,threads,fecha_nacimiento,titulo_especial,ve_toda_la_red,last_seen_at');
+  const { data: profiles, error: errP } = await sb.from('profiles').select('id,auth_user_id,nombre,office_id,role,supervisor_id,gc_id,distrital_id,divisional_id,regional_id,aprobador_id,base_total_ej,t3_count,t5_count,t10_count,bio,edad,username,active,manual_block,auto_deactivated,reactivado_at,created_at,instagram,tiktok,facebook,threads,fecha_nacimiento,titulo_especial,ve_toda_la_red,last_seen_at');
   if(errP){ console.error('profiles', errP); return false; }
 
   const { data: monthly, error: errM } = await sb.from('monthly_totals_closed').select('profile_id,month,total');
@@ -1114,6 +1115,8 @@ async function loadDirectoryFromSupabase(){
 
   APROBADOR_OFICINA = {};
   offices.forEach(o=>{ if(o.aprobador_id) APROBADOR_OFICINA[o.name] = nameOf(o.aprobador_id); });
+  APROBADOR_PERSONA = {};
+  (profiles||[]).forEach(x=>{ if(x.aprobador_id) APROBADOR_PERSONA[x.nombre] = nameOf(x.aprobador_id); });
 
   SUP_HIST = {};
   (supHist||[]).forEach(h=>{
@@ -1304,7 +1307,7 @@ const MES_ACTUAL = (()=>{
   const L = {ene:'Enero',feb:'Febrero',mar:'Marzo',abr:'Abril',may:'Mayo',jun:'Junio',jul:'Julio',ago:'Agosto',sep:'Septiembre',oct:'Octubre',nov:'Noviembre',dic:'Diciembre'};
   return L[sig] + ' ' + anio;
 })();
-const APP_VERSION = '202610071939'; // se actualiza en cada despliegue — usada para forzar refresco automático
+const APP_VERSION = '202610072007'; // se actualiza en cada despliegue — usada para forzar refresco automático
 
 const BADGES_DEF = [
   {id:'garantia', ico:'target', col:'var(--verde)', name:'Garantía', cond:(p)=> p.maxMonth >= GARANTIA},
@@ -2197,9 +2200,17 @@ function eneJunOf(nombre){
 function aprobadorDeOficina(oficina, rep){
   return APROBADOR_OFICINA[oficina] || (rep ? rep.gc : '') || '';
 }
+// Quién autoriza las inscripciones de esta persona, en orden: el aprobador que Dirección
+// le puso a ELLA, el de su oficina, y si no, su gerente comercial. Lo primero existe para
+// casos como un gerente comercial sin nadie arriba más que su divisional: se le puede
+// mandar la autorización a Dirección sin cambiarle el aprobador al resto de la oficina.
+function aprobadorDe(rep, oficina){
+  if(!rep) return '';
+  return APROBADOR_PERSONA[rep.n] || aprobadorDeOficina(oficina || rep.f, rep);
+}
 function segundoAprobador(rep){
   if(!rep) return null;
-  return aprobadorDeOficina(rep.f, rep) || rep.gdt || rep.gdv || null; // regional NUNCA autoriza salvo que se le designe
+  return aprobadorDe(rep) || rep.gdt || rep.gdv || null; // regional NUNCA autoriza salvo que se le designe
 }
 function esAutoSup(rep){ return rep && rep.sup === rep.n; } // supervisor registrando su propia inscripción
 // Cadena completa de aprobación de un rep, de abajo hacia arriba. El regional no entra
@@ -2207,7 +2218,7 @@ function esAutoSup(rep){ return rep && rep.sup === rep.n; } // supervisor regist
 // Dirección lo designó aprobador de esa oficina (ver aprobadorDeOficina).
 function cadenaAprobacion(rep){
   if(!rep) return [];
-  return [rep.sup, aprobadorDeOficina(rep.f, rep), rep.gdt, rep.gdv].filter(Boolean);
+  return [rep.sup, aprobadorDe(rep), rep.gdt, rep.gdv].filter(Boolean);
 }
 // Cuando un GERENTE (no el propio rep) registra la inscripción, el aprobador requerido
 // es la siguiente persona en la cadena, inmediatamente arriba de quien la registró.
@@ -2790,7 +2801,7 @@ function myApprovalQueue(){
     const rep = findAnyPersonData(i.nombre);
     if(!rep) return i.aprobadorRequerido===ME.n; // sin datos de jerarquía disponibles: modo anterior de respaldo
     // La oficina de la inscripción manda, no la oficina base del rep: alguien puede vender en otra plaza.
-    const nivelesSuperioresAlSupervisor = [aprobadorDeOficina(i.franquicia, rep), rep.gdt, rep.gdv].filter(Boolean);
+    const nivelesSuperioresAlSupervisor = [aprobadorDe(rep, i.franquicia), rep.gdt, rep.gdv].filter(Boolean);
     if(nivelesSuperioresAlSupervisor.length) return nivelesSuperioresAlSupervisor.includes(ME.n);
     return i.aprobadorRequerido===ME.n; // nadie por encima del supervisor: usa lo ya guardado
   });
@@ -2828,7 +2839,10 @@ async function approveSup(id){
   renderCurrentView();
 }
 async function approveGer(id){
-  const estadoFinal = REQUIERE_APROBACION_GENERAL_AL_FINAL ? ESTADOS.GG_OK : ESTADOS.VALIDADA;
+  // Si quien aprueba es Dirección General, su visto ya es el último: no tiene sentido
+  // mandarle la misma inscripción otra vez a su propia cola final.
+  const soyDireccion = ME && ME.role==='general';
+  const estadoFinal = (REQUIERE_APROBACION_GENERAL_AL_FINAL && !soyDireccion) ? ESTADOS.GG_OK : ESTADOS.VALIDADA;
   const { error } = await sb.from('enrollments').update({
     estado: estadoFinal, ger_por: ME.data.id, ger_ts: new Date().toISOString()
   }).eq('id', id);

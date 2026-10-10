@@ -978,6 +978,10 @@ let LIDERES = {regional:[], divisional:[], distrital:[]};
 // Quién supervisaba a cada representante en cada mes ya cerrado: {profile_id: [{sup, desde}...]}.
 // Sin entradas, todo su año cuenta para su supervisor de hoy — que es como funcionó siempre.
 let SUP_HIST = {};
+// Lo mismo un nivel arriba: quién era el gerente comercial de cada persona en cada mes
+// cerrado. {profile_id: [{gc, desde}...]}. Sin entradas, su año cuenta para el gerente
+// de hoy.
+let GC_HIST = {};
 // Oficinas donde Dirección designó a alguien distinto para autorizar: {oficina: nombre}.
 // Ese aprobador SUSTITUYE al gerente comercial en el segundo paso — el gerente conserva
 // su puesto, su equipo y sus números, sólo deja de autorizar. Distrital y divisional
@@ -1056,6 +1060,21 @@ function supDelMes(rep, mes){
   }
   return vigente ? vigente.sup : '';
 }
+// cuentaDesde() sólo distingue por OFICINA, y dos gerentes comerciales pueden compartirla
+// — en Torreón, Ayrton y Claribel llevaban cada uno su equipo en la misma oficina. Al
+// quedar un solo equipo, sin este historial el gerente que se queda heredaría el año
+// entero del otro. gc_historico dice quién mandaba cada mes; profiles.gc_id sigue siendo
+// el de HOY, que es el que vale para aprobar y para el mes en vivo.
+function gcDelMes(x, mes){
+  const hist = GC_HIST[x.id];
+  if(!hist || !hist.length) return x.gc;
+  const i = MESES_ORD.indexOf(mes);
+  let vigente = null;
+  for(const h of hist){
+    if(MESES_ORD.indexOf(h.desde) <= i) vigente = h; else break;
+  }
+  return vigente ? vigente.gc : '';
+}
 
 async function loadDirectoryFromSupabase(){
   const { data: offices, error: errO } = await sb.from('offices').select('id,name,zona,aprobador_id');
@@ -1101,6 +1120,9 @@ async function loadDirectoryFromSupabase(){
   const { data: supHist, error: errSH } = await sb.from('supervisor_historico').select('profile_id,supervisor_id,desde_mes');
   if(errSH){ console.error('supervisor_historico', errSH); }
 
+  const { data: gcHist, error: errGH } = await sb.from('gc_historico').select('profile_id,gc_id,desde_mes');
+  if(errGH){ console.error('gc_historico', errGH); }
+
   const { data: profOffices, error: errPO } = await sb.from('profile_offices').select('profile_id,office_id,desde_mes');
   if(errPO){ console.error('profile_offices', errPO); }
   const officesByProfile = {};
@@ -1123,6 +1145,12 @@ async function loadDirectoryFromSupabase(){
     (SUP_HIST[h.profile_id] = SUP_HIST[h.profile_id] || []).push({ sup: nameOf(h.supervisor_id), desde: h.desde_mes });
   });
   Object.values(SUP_HIST).forEach(lista => lista.sort((a,b)=> MESES_ORD.indexOf(a.desde) - MESES_ORD.indexOf(b.desde)));
+
+  GC_HIST = {};
+  (gcHist||[]).forEach(h=>{
+    (GC_HIST[h.profile_id] = GC_HIST[h.profile_id] || []).push({ gc: nameOf(h.gc_id), desde: h.desde_mes });
+  });
+  Object.values(GC_HIST).forEach(lista => lista.sort((a,b)=> MESES_ORD.indexOf(a.desde) - MESES_ORD.indexOf(b.desde)));
 
   const reps=[], sups=[], gcs=[], franqs=[], generales=[], liderazgoPersonal=[];
   const lid = {regional:[], divisional:[], distrital:[]};
@@ -1201,10 +1229,12 @@ async function loadDirectoryFromSupabase(){
   // personales de sus supervisores — 370 inscripciones de la red no le contaban a nadie.
   // De un supervisor se toma su renglón PERSONAL, no su total de equipo: sus
   // representantes ya se cuentan aquí por separado, y sumar las dos cosas los duplicaría.
+  // Y cada mes se suma con el gerente que mandaba ESE mes, igual que con el supervisor.
+  const candidatosGc = [...reps, ...sups];
   gcs.forEach(g=>{
-    const miGente = [...reps, ...sups].filter(x=> norm(x.gc)===norm(g.n));
     MKEYS.forEach(k=>{
-      g[k] = miGente.reduce((acc,x)=>{
+      g[k] = candidatosGc.reduce((acc,x)=>{
+        if(norm(gcDelMes(x,k)) !== norm(g.n)) return acc;
         if(!cuentaDesde(g.id, x.f, k)) return acc;
         return acc + (x.personal ? (x.personal[k]||0) : (x[k]||0));
       }, 0) + (g.personal[k]||0);
@@ -1307,7 +1337,7 @@ const MES_ACTUAL = (()=>{
   const L = {ene:'Enero',feb:'Febrero',mar:'Marzo',abr:'Abril',may:'Mayo',jun:'Junio',jul:'Julio',ago:'Agosto',sep:'Septiembre',oct:'Octubre',nov:'Noviembre',dic:'Diciembre'};
   return L[sig] + ' ' + anio;
 })();
-const APP_VERSION = '202610100528'; // se actualiza en cada despliegue — usada para forzar refresco automático
+const APP_VERSION = '202610101903'; // se actualiza en cada despliegue — usada para forzar refresco automático
 
 const BADGES_DEF = [
   {id:'garantia', ico:'target', col:'var(--verde)', name:'Garantía', cond:(p)=> p.maxMonth >= GARANTIA},
@@ -2748,18 +2778,36 @@ function liderazgoCategoryList(nivel, campo){
     return {n:name, f:oficinas, ...totalesPorMes(todos)};
   });
 }
+// Estas dos listas son las que pinta el Ranking por categoría, y recalculan los meses
+// por su cuenta: si filtran por el líder de HOY, a quien acaba de recibir un equipo le
+// aparece también el pasado de ese equipo. Tienen que usar la misma regla que el rollup
+// de arriba — el líder vigente en cada mes — o el Ranking y el Equipo no cuadran.
+// Sólo quien tiene historial puede haber estado con otro líder; para el resto basta su
+// líder de hoy. Así el filtro sigue costando una comparación por persona y la resolución
+// mes por mes corre sobre un puñado, no sobre la red entera en cada repintado.
+function equipoPorMes(gente, quien, hist, resolver, campoHoy){
+  const q = norm(quien);
+  return gente.filter(x=> hist[x.id] || norm(x[campoHoy])===q)
+    .map(x=>{
+      const o = {f:x.f};
+      MESES_KEY.forEach(k=> o[k] = norm(resolver(x,k))===q ? (x[k]||0) : 0);
+      return o;
+    });
+}
 function gcCategoryList(){
+  // Del supervisor va su renglón PERSONAL: sus representantes se cuentan aparte.
+  const supsComoRenglon = SEED_SUP.map(s=>({...mesesPersonalDe(s), id:s.id, gc:s.gc, f:s.f}));
   return SEED_GC.map(g=>{
-    const reps = SEED_REPS.filter(r=> norm(r.gc)===norm(g.n));
-    const supsAqui = SEED_SUP.filter(s=> norm(s.gc)===norm(g.n));
+    const reps = equipoPorMes(SEED_REPS, g.n, GC_HIST, gcDelMes, 'gc');
+    const supsAqui = equipoPorMes(supsComoRenglon, g.n, GC_HIST, gcDelMes, 'gc');
     const propio = {t:g.t, ...g.personal, f:g.f};
-    const todos = [...reps, ...supsAqui.map(s=>({...mesesPersonalDe(s), f:s.f})), propio];
+    const todos = [...reps, ...supsAqui, propio];
     return {n:g.n, f:g.f, ...totalesPorMes(todos)};
   });
 }
 function supCategoryList(){
   return SEED_SUP.map(s=>{
-    const reps = SEED_REPS.filter(r=> norm(r.sup)===norm(s.n));
+    const reps = equipoPorMes(SEED_REPS, s.n, SUP_HIST, supDelMes, 'sup');
     const propio = {t:s.t, ...s.personal, f:s.f};
     const todos = [...reps, propio];
     return {n:s.n, f:s.f, ...totalesPorMes(todos)};

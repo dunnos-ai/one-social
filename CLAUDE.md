@@ -383,6 +383,35 @@ Cuando un supervisor deja una oficina, **sus representantes no se van con él**:
 se les quita el `supervisor_id` y quedan con el GC y el distrital que ya cubrían
 esa oficina. Si no, sus ventas le siguen sumando al equipo equivocado.
 
+### Un cambio de mando no reescribe el pasado
+
+`profiles.supervisor_id` y `profiles.gc_id` son los de **hoy**: con ellos se
+aprueba y se cuenta el mes en vivo. Para los meses ya cerrados manda el
+historial, y son **dos** tablas con la misma forma
+(`profile_id, <líder>_id, desde_mes`):
+
+| Tabla | Resuelve | Función en el `index.html` |
+|---|---|---|
+| `supervisor_historico` | quién supervisaba esa persona ese mes | `supDelMes(rep, mes)` |
+| `gc_historico` | quién era su gerente comercial ese mes | `gcDelMes(x, mes)` |
+
+Reglas de las dos:
+
+- **Sin renglones, cuenta el líder de hoy todo el año** — que es como funcionó
+  siempre, y por eso no hay que sembrar la red entera.
+- **Si hay historial, tiene que estar completo.** Un mes anterior al primer
+  renglón no cuenta para nadie. Caer en "el de hoy" sería justo el error que esto
+  arregla, así que se pone un renglón `desde_mes='ene'` — con el líder anterior, o
+  con `null` si no tenía.
+- `gc_historico` hace falta porque `cuentaDesde()` sólo distingue por **oficina**,
+  y dos gerentes comerciales pueden compartirla: en Torreón, Ayrton y Claribel
+  llevaban cada uno su equipo en la misma oficina.
+
+**Los cuatro lugares que resuelven un líder tienen que usar las mismas funciones**
+o el Ranking y la pestaña Equipo se contradicen: el rollup de `sups` y el de `gcs`
+en `loadDirectoryFromSupabase`, y `supCategoryList()` y `gcCategoryList()`, que
+recalculan los meses por su cuenta para el Ranking por categoría.
+
 ## Acceso: bloqueo por inactividad
 
 `profiles.last_seen_at` se sella al entrar, y también por trigger cuando se

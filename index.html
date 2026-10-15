@@ -1337,7 +1337,7 @@ const MES_ACTUAL = (()=>{
   const L = {ene:'Enero',feb:'Febrero',mar:'Marzo',abr:'Abril',may:'Mayo',jun:'Junio',jul:'Julio',ago:'Agosto',sep:'Septiembre',oct:'Octubre',nov:'Noviembre',dic:'Diciembre'};
   return L[sig] + ' ' + anio;
 })();
-const APP_VERSION = '202610152146'; // se actualiza en cada despliegue — usada para forzar refresco automático
+const APP_VERSION = '202610152151'; // se actualiza en cada despliegue — usada para forzar refresco automático
 
 const BADGES_DEF = [
   {id:'garantia', ico:'target', col:'var(--verde)', name:'Garantía', cond:(p)=> p.maxMonth >= GARANTIA},
@@ -3384,6 +3384,11 @@ function embudoHTML(a, inscripciones, esEquipo){
        + '<div class="emb-resumen">' + resumen + '</div>';
 }
 
+// Quién captura su propio día. Al principio era solo el representante, pero un supervisor
+// o un gerente que vende en persona también necesita su embudo: sin esto, sus llamadas y
+// citas no quedaban en ningún lado. 'lead' cubre distrital, divisional y regional.
+// El franquiciatario y Dirección no entran: no llevan venta personal.
+const PUEDE_CAPTURAR_KPIS = ['rep','sup','gc','lead'];
 function actividadCardHTML(){
   const hoyISO = todayISO();
   const esHoy = ACTV_FECHA_SEL===hoyISO;
@@ -4790,6 +4795,8 @@ function renderHome(){
         const top3 = oficinasDelEquipo.sort((a,b)=>(totalesOficina[b]||0)-(totalesOficina[a]||0)).slice(0,3);
         return top3.map(f=>officeStatsHTML(f)).join('');
       })()}
+      ${PUEDE_CAPTURAR_KPIS.includes(ME.role) ? `${actividadCardHTML()}
+      <div class="small-note" style="margin-top:-8px">Estos KPIs son los <b>tuyos</b>, de tu venta personal. El embudo de tu equipo vive en Equipo → Métricas.</div>` : ''}
       ${ownedOfficeSectionHTML()}
       ${ME.role==='general' ? `
       <div class="card" style="border-color:var(--gold)">

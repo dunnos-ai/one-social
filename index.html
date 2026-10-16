@@ -1337,7 +1337,7 @@ const MES_ACTUAL = (()=>{
   const L = {ene:'Enero',feb:'Febrero',mar:'Marzo',abr:'Abril',may:'Mayo',jun:'Junio',jul:'Julio',ago:'Agosto',sep:'Septiembre',oct:'Octubre',nov:'Noviembre',dic:'Diciembre'};
   return L[sig] + ' ' + anio;
 })();
-const APP_VERSION = '202610152151'; // se actualiza en cada despliegue — usada para forzar refresco automático
+const APP_VERSION = '202610160102'; // se actualiza en cada despliegue — usada para forzar refresco automático
 
 const BADGES_DEF = [
   {id:'garantia', ico:'target', col:'var(--verde)', name:'Garantía', cond:(p)=> p.maxMonth >= GARANTIA},
@@ -3548,6 +3548,12 @@ async function borrarExtra(id){
   renderCurrentView();
 }
 
+// Quién ve su tarjeta de ganancias y su meta del mes. El supervisor entra porque también
+// vende en persona y hasta ahora no tenía dónde ponerse una meta. Los números salen de su
+// venta PERSONAL contra la tabla de comisiones de su zona — no incluyen lo que gane por el
+// equipo, que la app no modela. Dirección y franquiciatario quedan fuera: no cobran comisión
+// por plan; el dinero de su gente lo ven en la vista de equipo.
+const PUEDE_VER_GANANCIAS = ['rep','sup'];
 function gananciasCardHTML(){
   if(!hayTablaDeComisiones()){
     // Sin tabla para su zona no se inventa un número: se dice por qué.
@@ -4795,6 +4801,7 @@ function renderHome(){
         const top3 = oficinasDelEquipo.sort((a,b)=>(totalesOficina[b]||0)-(totalesOficina[a]||0)).slice(0,3);
         return top3.map(f=>officeStatsHTML(f)).join('');
       })()}
+      ${PUEDE_VER_GANANCIAS.includes(ME.role) ? gananciasCardHTML() : ''}
       ${PUEDE_CAPTURAR_KPIS.includes(ME.role) ? `${actividadCardHTML()}
       <div class="small-note" style="margin-top:-8px">Estos KPIs son los <b>tuyos</b>, de tu venta personal. El embudo de tu equipo vive en Equipo → Métricas.</div>` : ''}
       ${ownedOfficeSectionHTML()}

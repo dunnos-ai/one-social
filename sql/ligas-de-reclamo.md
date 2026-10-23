@@ -80,3 +80,37 @@ Quedan guardadas en Supabase → Database → Migrations:
 - `actividad_por_inscripcion` — trigger que sella `last_seen_at`
 - `regional_ve_sus_oficinas_por_nombre` — quita la anonimización de oficinas
   para gerentes regionales en `red_ranking_oficinas_vivo` y `oficina_detalle_vivo`
+
+
+---
+
+## Ligas de acceso (recuperar contraseña) — no confundir con éstas
+
+Las de arriba son para quien **nunca ha tenido cuenta**. Para quien ya la tiene y olvidó su
+contraseña existe otra liga, `recupera.html?t=<token>`, que **emite su líder desde la app**
+(botón *Liga de acceso* en el perfil). No hay que sacar listas ni mandarlas a mano: el líder
+la genera cuando se la piden.
+
+Para ver quién pidió ligas últimamente:
+
+```sql
+select p.nombre, coalesce(o.name,'—') as oficina,
+       e.nombre as la_emitio,
+       rt.created_at, rt.expira_at, rt.usado_at,
+       case when rt.usado_at is not null then 'usada'
+            when rt.expira_at < now()    then 'vencida'
+            else 'viva' end as estado
+from recovery_tokens rt
+join profiles p on p.id = rt.profile_id
+left join profiles e on e.id = rt.emitido_por
+left join offices o on o.id = p.office_id
+order by rt.created_at desc;
+```
+
+Si hay que revocar todas las ligas vivas de alguien:
+
+```sql
+update recovery_tokens set usado_at = now()
+where profile_id = (select id from profiles where nombre = 'NOMBRE EXACTO')
+  and usado_at is null;
+```

@@ -326,6 +326,7 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;overscrol
 .fb-pending{background:var(--s2);color:var(--t3);}
 .fb-friends{background:var(--mint-w);border:1px solid var(--mint-b);color:var(--mint);}
 .fb-reactivar{background:transparent;border:1px solid var(--gold);color:var(--gold);margin-left:8px;}
+.fb-liga{background:transparent;border:1px solid var(--azul);color:var(--azul);margin-left:8px;}
 .friend-req-actions{display:flex;gap:8px;justify-content:center;position:relative;}
 .fb-accept{background:var(--mint);color:var(--on-mint);}
 .fb-reject{background:var(--s3);color:var(--t2);padding:11px 18px;border-radius:999px;border:none;font-weight:700;cursor:pointer;}
@@ -1337,7 +1338,7 @@ const MES_ACTUAL = (()=>{
   const L = {ene:'Enero',feb:'Febrero',mar:'Marzo',abr:'Abril',may:'Mayo',jun:'Junio',jul:'Julio',ago:'Agosto',sep:'Septiembre',oct:'Octubre',nov:'Noviembre',dic:'Diciembre'};
   return L[sig] + ' ' + anio;
 })();
-const APP_VERSION = '202610160102'; // se actualiza en cada despliegue — usada para forzar refresco automático
+const APP_VERSION = '202610232310'; // se actualiza en cada despliegue — usada para forzar refresco automático
 
 const BADGES_DEF = [
   {id:'garantia', ico:'target', col:'var(--verde)', name:'Garantía', cond:(p)=> p.maxMonth >= GARANTIA},
@@ -1948,6 +1949,14 @@ function renderProfile(name){
   // Si la regla de inactividad dejó fuera a esta persona y yo estoy por encima de ella,
   // puedo devolverle el acceso. Quién puede de verdad lo valida la base de datos
   // (reactivar_representante); aquí solo se decide si vale la pena mostrar el botón.
+  // La liga de acceso aplica a cualquiera de mi equipo, no sólo a representantes: un
+  // supervisor o un gerente también olvida su contraseña. Si todavía no tiene cuenta, la
+  // base responde que le toca su liga de reclamo, no ésta.
+  let ligaBtn = '';
+  if(!isMe && isLeaderRole()){
+    ligaBtn = `<button class="friend-btn fb-liga" onclick='ligaDeAcceso(${JSON.stringify(name)})'>`
+      + `${ico('link','currentColor',14)} Liga de acceso</button>`;
+  }
   let reactivarBtn = '';
   if(!isMe && identity.role==='rep' && isLeaderRole()){
     const repData = SEED_REPS.find(r=>r.n===name);
@@ -1989,7 +1998,7 @@ function renderProfile(name){
         ${extra.bio ? `<div class="pm-bio">${escapeHTML(extra.bio)}</div>` : ''}
         ${socialLinksHTML ? `<div class="pm-social-row">${socialLinksHTML}</div>` : ''}
       </div>
-      <div class="pm-actions">${friendBtn}${reactivarBtn}</div>
+      <div class="pm-actions">${friendBtn}${reactivarBtn}${ligaBtn}</div>
       <div id="profileEditBox" class="profile-edit-box" style="display:none">
         <textarea id="editBio" maxlength="${BIO_MAXLEN}" placeholder="Cuéntanos algo sobre ti...">${escapeHTML(extra.bio||'')}</textarea>
         <input id="editFechaNac" type="date" placeholder="Fecha de nacimiento" value="${extra.fechaNac||''}" style="color-scheme:dark;">
@@ -2637,6 +2646,31 @@ async function reactivarAcceso(nombre){
   await refrescarDirectorio(true);
   renderProfile(nombre);
   alert(nombre + ' ya puede entrar.');
+}
+// Olvidó su contraseña. No hay correo al cual mandarle nada —las direcciones
+// usuario@zonauno.app no existen—, así que la liga la emite su líder y se la pasa en mano.
+// Vive 24 horas, sirve una sola vez, y emitir otra mata la anterior. Quién puede emitirla
+// lo valida la base (generar_liga_de_recuperacion), con la misma regla que reactivar.
+async function ligaDeAcceso(nombre){
+  const per = findAnyPersonData(nombre);
+  if(!per || !per.id) return;
+  // Los nombres se guardan en MAYÚSCULAS; el mensaje que va a WhatsApp no debe gritar.
+  const pila = String(nombre||'').trim().split(/\s+/)[0] || '';
+  const deNombre = pila.charAt(0) + pila.slice(1).toLowerCase();
+  if(!confirm('¿Generar liga de acceso para '+nombre+'?\n\nCon ella elige una contraseña nueva. Vive 24 horas y sirve una sola vez. Pásasela sólo a ' + deNombre + ': lleva su usuario adentro.')) return;
+  const { data, error } = await sb.rpc('generar_liga_de_recuperacion', { p_profile_id: per.id });
+  if(error){ alert(error.message || 'No se pudo generar la liga.'); return; }
+  const d = (data||[])[0];
+  if(!d){ alert('No se pudo generar la liga.'); return; }
+  const liga = location.origin + '/recupera.html?t=' + d.token;
+  const msg = 'Hola ' + deNombre + ', tu usuario en ONE es ' + d.username
+            + '. Aquí eliges una contraseña nueva (la liga vive 24 horas): ' + liga;
+  try{
+    await navigator.clipboard.writeText(msg);
+    showToast('📋 Liga copiada — pégasela a ' + deNombre);
+  }catch(e){
+    prompt('Copia esto y mándaselo a ' + deNombre + ':', msg);
+  }
 }
 function isLeaderRole(){ return ME && (ME.role==='sup' || ME.role==='gc' || ME.role==='lead' || ME.role==='franq' || ME.role==='general'); }
 // Devuelve los reps de las oficinas que la persona posee como dueña, sin importar su rol principal.

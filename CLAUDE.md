@@ -434,6 +434,36 @@ existía. Sirve para sacar a quien ya no está en la empresa, no como barrera
 de seguridad: alguien con conocimientos técnicos podría saltársela hablando
 directo con Supabase. Lo que sí quedó cerrado con llave son los datos (abajo).
 
+## Olvidé mi contraseña: la liga de acceso
+
+**No hay correo al cual mandar nada.** Las direcciones `usuario@zonauno.app` son falsas —
+existen sólo para que Supabase acepte el login — y `profiles` no guarda correo ni teléfono
+de nadie. El "te enviamos un enlace de recuperación" está descartado de origen.
+
+En su lugar, **la liga la emite el líder** y se la pasa en mano:
+
+| Pieza | Qué hace |
+|---|---|
+| `recovery_tokens` | La liga. De un solo uso, vive 24 h, y emitir otra mata la anterior. Nadie la lee por RLS. |
+| `generar_liga_de_recuperacion(profile_id)` | La emite. Misma regla que `reactivar_representante`: Dirección, tu cadena (`is_in_my_hierarchy`) o el dueño de la oficina. Si la persona **no tiene cuenta**, responde que le toca su liga de *reclamo*, que es otra cosa. |
+| `recuperacion_por_token(token)` | Lo que lee la página: nombre, oficina y **su usuario**. El usuario sólo se revela con la liga viva en la mano. |
+| `recuperar_con_token(token, password)` | Fija la contraseña. Consume el token en el mismo `update`, así que dos intentos simultáneos no pueden ganar los dos. |
+| `recupera.html` | La página. Saluda, le dice cuál es su usuario, pide contraseña nueva dos veces y la mete a la app. |
+| Botón **Liga de acceso** | En el perfil de cualquiera de tu equipo. Copia al portapapeles un mensaje listo para WhatsApp, con su usuario adentro. |
+
+Dos cosas que importan y no se ven:
+
+- **El usuario es la mitad del problema.** Hay 35 personas cuyo usuario no se deduce de su
+  nombre — NATHALIA AYALA es `nataliaayala`, *sin hache*; Samuel Tena es `labestiatena`.
+  Como la app da el mismo error para "ese usuario no existe" y "contraseña incorrecta",
+  nadie puede distinguir un caso del otro. Por eso la página se lo dice de entrada.
+- **`recuperar_con_token` rellena las ocho columnas de token de `auth.users` con cadena
+  vacía.** GoTrue no tolera `NULL` ahí: una cuenta con NULL en `confirmation_token`,
+  `recovery_token`, `email_change` o `email_change_token_new` **no puede iniciar sesión**, y
+  el error que recibe el navegador es genérico, así que la app lo muestra como "usuario o
+  contraseña incorrectos". Si algún día se crean cuentas con `insert` directo a `auth.users`,
+  hay que poner esas ocho en `''` o la cuenta nace rota.
+
 ## Qué puede escribir un usuario en su propio perfil
 
 `profiles` tenía `UPDATE` abierto en **todas** sus columnas para `anon` y

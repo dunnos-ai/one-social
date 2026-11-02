@@ -1025,7 +1025,7 @@ const MESES_ORD = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','
 // Meses ya cerrados, en orden. ESTA es la única lista que se toca al cerrar un mes: de aquí
 // salen los rankings, los KPIs, las etiquetas y el histórico de oficina. Antes estaba copiada
 // en seis lugares y al entrar un mes nuevo había que acordarse de los seis.
-const MESES_CERRADOS = ['ene','feb','mar','abr','may','jun','jul','ago','sep'];
+const MESES_CERRADOS = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct'];
 // Un renglón de meses en cero, para acumular sin que falte ninguna llave.
 function mesesEnCero(){ const o={t:0}; MESES_CERRADOS.forEach(k=>o[k]=0); return o; }
 // Pasa los meses cerrados de un renglón de la base al objeto que usa la app. Antes se
@@ -1338,7 +1338,7 @@ const MES_ACTUAL = (()=>{
   const L = {ene:'Enero',feb:'Febrero',mar:'Marzo',abr:'Abril',may:'Mayo',jun:'Junio',jul:'Julio',ago:'Agosto',sep:'Septiembre',oct:'Octubre',nov:'Noviembre',dic:'Diciembre'};
   return L[sig] + ' ' + anio;
 })();
-const APP_VERSION = '202610302040'; // se actualiza en cada despliegue — usada para forzar refresco automático
+const APP_VERSION = '202611022159'; // se actualiza en cada despliegue — usada para forzar refresco automático
 
 const BADGES_DEF = [
   {id:'garantia', ico:'target', col:'var(--verde)', name:'Garantía', cond:(p)=> p.maxMonth >= GARANTIA},

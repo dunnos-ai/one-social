@@ -538,6 +538,49 @@ No se recarga automáticamente a propósito: alguien puede estar a media captura
 de una inscripción o escribiendo en el muro, y una recarga sin avisar le borra
 lo que llevaba.
 
+## Insignias: una sola implementación
+
+`insigniasAutoDe(nombre)` e `insigniasDe(nombre)` son la **única** forma de saber qué
+insignias tiene alguien. Antes el cálculo estaba copiado en tres lados: el Perfil, el
+Home de representantes y —faltando— el Home de líderes. Esa tercera ausencia dejó el
+**Club 100 de una supervisora fuera del Feed**: su perfil se la mostraba, pero
+`registrarBadgesNuevosEnFeed()` sólo se llamaba en la rama de representantes, así que
+ningún líder había anunciado nunca una insignia.
+
+Reglas que el helper respeta y que no hay que romper:
+
+- Mide **venta personal** (`personalBaseTotal`), nunca la del equipo. Un gerente con
+  190 de equipo y 24 propias no es Club 100.
+- El rol `general` las recibe todas por decreto, y por eso **no** se le registran en el
+  Feed: serían 17 anuncios de golpe.
+- `findRepData()` sólo encuentra representantes, así que a un líder le llegan
+  `t3/t5/t10` en 0 y no puede ganar Top Performer, Influencer ni Closer. Viene así de
+  antes; si se quiere cambiar hay que usar `findAnyPersonData()` y avisar que de pronto
+  aparecerán insignias nuevas para los líderes.
+
+### Lo que todavía no hace
+
+El registro corre **en la sesión de cada quien** (la política de `feed_badge_events`
+exige `profile_id = my_profile_id()`), y `detectNewBadges()` sólo reporta lo que cambia
+**entre dos renders de la misma sesión**. O sea: si alguien cruza su club mientras no
+tiene la app abierta, no se anuncia. Arreglarlo de verdad pide detección en el servidor
+(un trigger sobre `enrollments`) más un respaldo silencioso de lo ya ganado — si no, el
+primer render tras el cambio anunciaría de golpe todas las insignias viejas de 295
+personas.
+
+## Anuncios de Dirección
+
+La constante `ANUNCIO` arriba de `anuncioHTML()` pinta una tarjeta **arriba del Home de
+todos los roles**. Se cambia editando el bloque y desplegando; con `activo:false`
+desaparece sin borrar el texto, y `hasta:'AAAA-MM-DD'` la apaga sola.
+
+`color` e `icono` son **llaves, no CSS**: se traducen con `ANUNCIO_COLORES` y `ico()`,
+y el texto pasa por `escapeHTML()`. Nunca meter CSS crudo ni HTML desde la constante.
+
+Lo que la hace servir para algo más que informar es `miEscaleraHTML()`: debajo del
+anuncio, cada quien ve **cuánto le falta para su siguiente club**, con su venta
+personal. Dirección y franquiciatarios no la ven porque no compiten en esa escalera.
+
 ## Convenciones
 
 - Mensajes de commit en español, estilo `feat:`, `fix:`, `chore:`.

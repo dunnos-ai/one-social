@@ -594,6 +594,16 @@ html,body{margin:0;padding:0;height:100%;height:100dvh;overflow:hidden;overscrol
 }
 .feed-live-label{font-family:var(--fm);font-size:10px;letter-spacing:.09em;color:var(--mint);text-transform:uppercase;font-weight:700;}
 .feed-empty{text-align:center;color:var(--t3);font-size:12.5px;padding:28px 10px;}
+.anuncio{position:relative;display:flex;gap:13px;align-items:flex-start;padding:15px 16px 15px 18px;border-radius:17px;margin-bottom:14px;background:var(--s2);border:1px solid var(--line);border-left:3px solid var(--anc);overflow:hidden;animation:anuncioIn .55s cubic-bezier(.16,1,.3,1) both;}
+.anuncio::before{content:'';position:absolute;left:0;top:0;bottom:0;width:140px;background:radial-gradient(ellipse at left center, var(--anc), transparent 72%);opacity:.11;pointer-events:none;}
+@keyframes anuncioIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+.anuncio-ico{width:42px;height:42px;border-radius:14px;background:var(--s3);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--anc);position:relative;}
+.anuncio-body{flex:1;min-width:0;position:relative;}
+.anuncio-kicker{font-family:var(--fm);font-size:9px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--anc);margin-bottom:4px;}
+.anuncio-titulo{font-family:var(--fd);font-weight:800;font-size:17px;line-height:1.2;letter-spacing:-.02em;color:var(--bone);margin-bottom:6px;}
+.anuncio-cuerpo{font-size:13px;line-height:1.55;color:var(--t2);}
+.anuncio-yo{margin-top:11px;padding-top:10px;border-top:1px dashed var(--line);font-size:12.5px;line-height:1.5;color:var(--t2);}
+.anuncio-yo b{color:var(--anc);font-weight:700;}
 
 /* ══ RANKING ══ */
 .mr{display:flex;align-items:center;gap:13px;padding:13px 0;border-bottom:1px solid var(--line);animation:rowSoftIn .35s ease both;}
@@ -1338,7 +1348,7 @@ const MES_ACTUAL = (()=>{
   const L = {ene:'Enero',feb:'Febrero',mar:'Marzo',abr:'Abril',may:'Mayo',jun:'Junio',jul:'Julio',ago:'Agosto',sep:'Septiembre',oct:'Octubre',nov:'Noviembre',dic:'Diciembre'};
   return L[sig] + ' ' + anio;
 })();
-const APP_VERSION = '202611022159'; // se actualiza en cada despliegue — usada para forzar refresco automático
+const APP_VERSION = '202611051118'; // se actualiza en cada despliegue — usada para forzar refresco automático
 
 const BADGES_DEF = [
   {id:'garantia', ico:'target', col:'var(--verde)', name:'Garantía', cond:(p)=> p.maxMonth >= GARANTIA},
@@ -1359,6 +1369,78 @@ const BADGES_DEF = [
   {id:'doble',    ico:'trending', col:'var(--rosa)', name:'Doble Dígito', cond:(p)=> p.liveMonth >= 10},
   {id:'lider',    ico:'crown', col:'var(--morado)', name:'Líder de Equipo', cond:(p)=> p.isLeader},
 ];
+
+// Insignias automáticas de una persona. UNA sola implementación, usada por el Perfil y por el
+// Home de todos los roles. Antes el Home de líderes no calculaba insignias ni las registraba en
+// el Feed: por eso el Club 100 de una supervisora nunca se anunció, aunque su perfil sí lo
+// mostraba. Siempre mide venta PERSONAL, nunca la del equipo.
+function insigniasAutoDe(name){
+  const identity = primaryIdentity(name);
+  if(identity.role==='general') return BADGES_DEF.slice();   // Dirección las tiene por decreto
+  const repData = findRepData(name);
+  const nat  = repData ? (nationalRanking().findIndex(r=>r.n===name)+1 || null) : null;
+  const ofic = repData ? (officeRanking(repData.f).findIndex(r=>r.n===name)+1 || null) : null;
+  const live = validatedTotal(name);
+  return BADGES_DEF.filter(b=> b.cond({
+    liveMonth: live,
+    baseTotal: personalBaseTotal(name),
+    isLeader:  identity.role!=='rep',
+    t3: repData?repData.t3:0, t5: repData?repData.t5:0, t10: repData?repData.t10:0,
+    maxMonth:  maxMonthOf(name, live),
+    eneJun:    eneJunOf(name)
+  }, nat, ofic));
+}
+function insigniasDe(name){
+  const manualIds = BADGES_MANUALES[name] || [];
+  return [...new Set([...insigniasAutoDe(name), ...BADGES_DEF.filter(b=>manualIds.includes(b.id))])];
+}
+
+// ══════════ ANUNCIO DE DIRECCIÓN ══════════
+// Sale ARRIBA del Home de toda la red, en todos los roles. Para cambiarlo o retirarlo se edita
+// aquí y se despliega; con activo:false desaparece de todas las pantallas sin borrar el texto.
+// color e icono son llaves, no CSS: se traducen abajo, así nunca entra estilo crudo al HTML.
+const ANUNCIO = {
+  activo: true,
+  icono:  'medal',
+  color:  'gold',
+  kicker: 'Primera de la red',
+  titulo: 'Mar Fernández entra al Club 100',
+  cuerpo: 'Cerró su inscripción número 100 del año. Nadie en las 18 oficinas había llegado — la segunda marca de la red va en 85. Empezó el año vendiendo y hoy además dirige a 20 personas en Torreón.',
+  hasta:  '2026-11-30',   // después de esta fecha se apaga solo
+};
+const ANUNCIO_COLORES = {
+  gold:'var(--gold)', mint:'var(--mint)', verde:'var(--verde)', azul:'var(--azul)',
+  rosa:'var(--rosa)', morado:'var(--morado)', terracota:'var(--terracota)'
+};
+const CLUBS_ESCALERA = [
+  {n:15,name:'Club 15'}, {n:25,name:'Club 25'}, {n:50,name:'Club 50'},
+  {n:75,name:'Club 75'}, {n:100,name:'Club 100'}, {n:120,name:'Club Oro'}
+];
+// Lo que convierte la noticia de otra persona en una meta propia: cada quien ve cuánto le falta
+// para SU siguiente club, con su venta personal. Dirección y franquiciatarios no la ven porque
+// no compiten en la escalera.
+function miEscaleraHTML(){
+  if(!ME || ME.role==='general' || ME.role==='franq') return '';
+  const total = personalBaseTotal(ME.n) + validatedTotal(ME.n);
+  const sig = CLUBS_ESCALERA.find(c=> total < c.n);
+  if(!sig) return '<div class="anuncio-yo">Tú vas en <b>' + total + '</b> y ya pasaste el Club Oro. El techo de la red lo pones tú.</div>';
+  return '<div class="anuncio-yo">Tú vas en <b>' + total + '</b> personales este año. Te faltan <b>'
+       + (sig.n - total) + '</b> para tu <b>' + sig.name + '</b>.</div>';
+}
+function anuncioHTML(){
+  const a = ANUNCIO;
+  if(!a || !a.activo) return '';
+  if(a.hasta && Date.now() > new Date(a.hasta + 'T23:59:59').getTime()) return '';
+  const col = ANUNCIO_COLORES[a.color] || 'var(--gold)';
+  return '<div class="anuncio" style="--anc:' + col + '">'
+    + '<div class="anuncio-ico">' + ico(a.icono, 'currentColor', 24) + '</div>'
+    + '<div class="anuncio-body">'
+    + (a.kicker ? '<div class="anuncio-kicker">' + escapeHTML(a.kicker) + '</div>' : '')
+    + '<div class="anuncio-titulo">' + escapeHTML(a.titulo) + '</div>'
+    + '<div class="anuncio-cuerpo">' + escapeHTML(a.cuerpo) + '</div>'
+    + miEscaleraHTML()
+    + '</div></div>';
+}
 
 // ══════════ STATE ══════════
 let ME = null;            // {n, role, f, ...}
@@ -1930,9 +2012,7 @@ function renderProfile(name){
   const baseTotal = personalBaseTotal(name);
   const isLeaderPerson = identity.role!=='rep';
   const liveDeEstaPersona = validatedTotal(name);
-  const wonAuto = identity.role==='general' ? BADGES_DEF.slice() : BADGES_DEF.filter(b=> b.cond({liveMonth:liveDeEstaPersona, baseTotal, isLeader:isLeaderPerson, t3,t5,t10, maxMonth:maxMonthOf(name,liveDeEstaPersona), eneJun:eneJunOf(name)}, nat, ofic));
-  const manualIds = BADGES_MANUALES[name] || [];
-  const won = [...new Set([...wonAuto, ...BADGES_DEF.filter(b=>manualIds.includes(b.id))])];
+  const won = insigniasDe(name);
   const initials = name.split(' ').slice(0,2).map(w=>w[0]).join('');
   const rc = roleColor(identity.role);
 
@@ -4720,9 +4800,7 @@ function renderHome(){
     const garPct = Math.min(100, Math.round(live/GARANTIA*100));
     const viajeTotal = totalViaje(ME.n, live);
     const viajePct = Math.min(100, Math.round(viajeTotal/VIAJE*100));
-    const wonAuto = BADGES_DEF.filter(b=> b.cond({liveMonth:live, baseTotal:ME.t, isLeader:false, t3:ME.data&&ME.data.t3, t5:ME.data&&ME.data.t5, t10:ME.data&&ME.data.t10, maxMonth:maxMonthOf(ME.n,live), eneJun:eneJunOf(ME.n)}, nat, ofic));
-    const manualIds = BADGES_MANUALES[ME.n] || [];
-    const won = [...new Set([...wonAuto, ...BADGES_DEF.filter(b=>manualIds.includes(b.id))])];
+    const won = insigniasDe(ME.n);   // misma fuente que el Perfil y que el Home de líderes
     const ringPct = Math.min(1, live/GARANTIA);
     const newBadges = detectNewBadges(won);
     if(newBadges.length) registrarBadgesNuevosEnFeed(newBadges);
@@ -4731,6 +4809,7 @@ function renderHome(){
     const tierLeveled = detectTierUp(tierIndexDe(miMejorMes));
     el.innerHTML = `
       <div class="notifs">${notifCards()}</div>
+      ${anuncioHTML()}
       ${FRASE}
       <div id="homeRivalCardWrap">${rivalCardHTML()}</div>
       <div class="hero-card">
@@ -4798,8 +4877,16 @@ function renderHome(){
     const teamRingPct = team.length ? garantias/team.length : 0;
     const {ggStage, supStage, gerStage} = myApprovalQueue();
     const pendCount = ggStage.length + supStage.length + gerStage.length;
+    // Un líder también gana insignias por su venta propia, y hasta ahora ninguna llegaba al Feed
+    // porque este registro sólo existía en la rama de representantes. Dirección queda fuera: tiene
+    // todas por decreto y llenaría el Feed de una sola vez.
+    if(ME.role!=='general'){
+      const nuevasMias = detectNewBadges(insigniasDe(ME.n));
+      if(nuevasMias.length) registrarBadgesNuevosEnFeed(nuevasMias);
+    }
     el.innerHTML = `
       <div class="notifs">${notifCards()}</div>
+      ${anuncioHTML()}
       ${FRASE}
       ${pendCount ? `<div class="notif notif-action" onclick="goView('equipo')"><span class="notif-ico">🔔</span><span><b>${pendCount}</b> inscripción${pendCount>1?'es':''} esperando tu aprobación</span></div>` : ''}
       ${(ME.role==='sup'||ME.role==='gc') ? `<div id="homeRivalCardWrap">${rivalCardHTML()}</div>` : ''}
